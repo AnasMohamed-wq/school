@@ -1,0 +1,26 @@
+from django.urls import path
+from .views import (
+    LoginView,LogoutView,
+    ParentSchoolListView, StudentListView, CreateRequestView,
+    ClassDashboardView, ActiveRequestsView,
+    ApprovalActionView
+)
+
+urlpatterns = [
+    # --- المسار العام (المصادقة) ---
+    path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'), # المسار الجديد
+
+    # --- مسارات ولي الأمر (Parent) ---
+    path('parent/schools/', ParentSchoolListView.as_view(), name='parent-schools'),
+    path('parent/students/', StudentListView.as_view(), name='parent-students'),
+    path('parent/pickup/create/', CreateRequestView.as_view(), name='create-pickup'),
+
+    # --- مسارات المعلم (Teacher) ---
+    path('teacher/dashboard/', ClassDashboardView.as_view(), name='teacher-dashboard'),
+    path('teacher/requests/active/', ActiveRequestsView.as_view(), name='active-requests'),
+    # ملاحظة: يمكنك إضافة ActionUpdateView هنا لتغيير حالة الطلب (قبول/تسليم)
+
+    # --- مسارات المدير (Manager) ---
+    path('manager/approve-parent/<int:parent_id>/', ApprovalActionView.as_view(), name='approve-parent'),
+]
