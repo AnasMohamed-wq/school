@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import BaseUserManager
 from django.core.exceptions import ValidationError
 import uuid
+import secrets , random , string 
 
 # تعريف الحالات في كلاس منفصل ليكون المرجع الوحيد
 class StudentStatus:
@@ -46,7 +47,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ROLES = [
         ('PARENT', 'Parent'),
         ('TEACHER', 'Teacher'),
-        ('MANAGER', 'Manager'),
+        ('MANAGER', 'schoolmanager'),
         ('SUPER_ADMIN', 'Super Admin'),
     ]
 
@@ -106,6 +107,18 @@ class School(models.Model):
     location_method = models.CharField(max_length=10, choices=LOCATION_METHODS)
     is_active = models.BooleanField(default=True)
 
+    def generate_public_code(self):
+        """
+        يولد كودًا عامًا للمدرسة
+        مثال: SCH-48392
+        """
+        return f"SCH-{random.randint(10000, 99999)}"
+
+    def save(self, *args, **kwargs):
+        if not self.public_code:
+            self.public_code = self.generate_public_code()
+        super().save(*args, **kwargs)
+
 
     def __str__(self):
         return self.name
@@ -153,14 +166,24 @@ class ParentSchool(models.Model):
     is_approved = models.BooleanField(default=False)
     approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     approved_at = models.DateTimeField(null=True, blank=True)
+  
 
 
     class Meta:
         unique_together = ('parent', 'school')
+
+    def generate_parent_school_token(self):
+        """
+        توكن قوي وآمن
+        """
+        return f"ps_{secrets.token_urlsafe(32)}"
+
+    def save(self, *args, **kwargs):
+        if not self.parent_school_token:
+            self.parent_school_token = self.generate_parent_school_token()
+        super().save(*args, **kwargs)
     
-    @property
-    def phone(self):
-        return self.parent.user.phone
+    
     
  
 class Student(models.Model):
@@ -171,6 +194,26 @@ class Student(models.Model):
     student_code = models.CharField(max_length=100 , unique=True)
     status = models.CharField(max_length=20, choices=StudentStatus.CHOICES, default=StudentStatus.PRESENT)
     is_active = models.BooleanField(default=True)
+
+
+    def generate_student_code(self):
+        """
+        مثال:
+        SCH1-CLS3-0007
+        """
+        school_part = f"SCH{self.school.id}"
+        class_part = f"CLS{self.school_class.id}"
+
+        last_student = (
+            Student.objects
+            .filter(school=self.school, school_class=self.school_class)
+            .exclude(student_code='')
+            .count()
+            + 1
+        )
+
+        return f"{school_part}-{class_part}-{str(last_student).zfill(4)}"
+
 
     # (1.1) حماية حالة الطالب داخل الموديل
     def change_status(self, new_status):
@@ -184,6 +227,12 @@ class Student(models.Model):
             )
         self.status = new_status
 
+    def save(self, *args, **kwargs):
+        if not self.student_code:
+            self.student_code = self.generate_student_code()
+        super().save(*args, **kwargs)
+
+
     def __str__(self):
         return self.full_name
     
@@ -195,6 +244,10 @@ class StudentParent(models.Model):
 
     class Meta:
         unique_together = ('student', 'parent')
+
+
+
+    
 
 
 
@@ -234,8 +287,17 @@ class SmartScreen(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE)
     school_class = models.ForeignKey(SchoolClass, on_delete=models.CASCADE)
     screen_name = models.CharField(max_length=100)
-    screen_token = models.CharField(max_length=255, unique=True, default=uuid.uuid4, editable=False)
+    screen_token = models.CharField(max_length=255, unique=True, editable=False)
     is_active = models.BooleanField(default=True)
+
+
+    def generate_screen_token(self):
+        return str(uuid.uuid4())
+
+    def save(self, *args, **kwargs):
+        if not self.screen_token:
+            self.screen_token = self.generate_screen_token()
+        super().save(*args, **kwargs)
 
 
 

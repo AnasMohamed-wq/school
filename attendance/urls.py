@@ -3,7 +3,8 @@ from .views import (
     LoginView,LogoutView,
     ParentSchoolListView, StudentListView, CreateRequestView,
     ClassDashboardView, ActiveRequestsView,
-    ApprovalActionView
+    ApprovalActionView ,StudentActionView ,
+    UnifiedStudentActionView
 )
 
 urlpatterns = [
@@ -20,6 +21,8 @@ urlpatterns = [
     path('teacher/dashboard/', ClassDashboardView.as_view(), name='teacher-dashboard'),
     path('teacher/requests/active/', ActiveRequestsView.as_view(), name='active-requests'),
     # ملاحظة: يمكنك إضافة ActionUpdateView هنا لتغيير حالة الطلب (قبول/تسليم)
+    path('teacher/student/<int:student_id>/update-status/', StudentActionView.as_view(), name='student-action-update'),
+    path('teacher/student/<int:student_id>/action/', UnifiedStudentActionView.as_view(), name='student-action'),
 
     # --- مسارات المدير (Manager) ---
     path('manager/approve-parent/<int:parent_id>/', ApprovalActionView.as_view(), name='approve-parent'),

@@ -25,3 +25,6 @@ class TeacherStudentStatusSerializer(serializers.ModelSerializer):
             'full_name',
             'status',
         ]
+        
+class StudentActionSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=['REQUESTED', 'AT_GATE', 'DELIVERED', 'PRESENT'])

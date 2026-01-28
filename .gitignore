@@ -6,4 +6,5 @@ seed_data.py
 db.sqlite3
 __pycache__/
 local_settings.py
-.env
+Simulator_request.py
+venv/

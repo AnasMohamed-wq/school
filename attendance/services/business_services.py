@@ -4,6 +4,7 @@ from ..models import PickupRequest, Student , StudentStatus
 from rest_framework.exceptions import ValidationError
 from .notification_services import WSService
 import logging
+from django.utils import timezone
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class AttendanceService:
         school = student.school
 
         # 2. التحقق الجغرافي بناءً على إعدادات المدرسة
-        if not LocationService.verify_proximity(school, lat, lng, barcode):
+        if not LocationService.verify_proximity(school, user_lat=lat, user_lng=lng, barcode=barcode):
             raise ValidationError("التحقق من الموقع فشل. لست في النطاق المسموح.")
 
         # 3. التحقق من الحالة عبر المركزية (SSoT)
@@ -67,18 +68,71 @@ class AttendanceService:
 
         return pickup_req
     
+    @staticmethod
+    @transaction.atomic
+    def update_student_and_request_status(student, new_status, teacher_user):
+        """
+        تحديث حالة الطالب ومزامنة طلب الاستلام المرتبط به تلقائياً.
+        """
+        current_status = student.status
+        
+        # 1. التحقق من صلاحية الانتقال (State Validation)
+        StateService.validate_transition(current_status, new_status)
+
+        # 2. تحديث حالة الطالب
+        student.change_status(new_status)
+        student.save(update_fields=['status'])
+
+        # 3. إدارة حالة "طلب الاستلام" (PickupRequest)
+        if new_status == 'DELIVERED':
+            # إغلاق الطلب عند التسليم النهائي
+            PickupRequest.objects.filter(
+                student=student, 
+                status='CREATED'
+            ).update(status='COMPLETED', processed_by=teacher_user)
+            
+        elif new_status == 'PRESENT' and current_status == 'REQUESTED':
+            # في حال إلغاء الطلب وإعادة الطالب لحالة "حاضر"
+            PickupRequest.objects.filter(
+                student=student, 
+                status='CREATED'
+            ).update(status='CANCELLED')
+
+        # 4. إرسال التحديثات عبر الـ WebSocket
+        WSService.broadcast_student_update(student)
+        
+        return student
+    
 
 
 class StateService:
-    # المرجع الوحيد لكل حالات النظام
-
     @staticmethod
     def validate_transition(current, target):
         if target not in StudentStatus.TRANSITIONS.get(current, []):
             raise ValidationError(f"انتقال غير مسموح من {current} إلى {target}")
 
     @staticmethod
+    @transaction.atomic
     def transition_student_status(student, new_status):
-        # استخدام التابع المعرف في الـ Model لضمان تنفيذ الـ Validation
+        # 1. تحديث حالة الطالب أولاً
         student.change_status(new_status)
         student.save(update_fields=['status'])
+
+        # 2. مزامنة "طلب الاستلام" (PickupRequest)
+        # إذا أصبح الطالب DELIVERED، نغلق الطلب بـ COMPLETED
+        if new_status == 'DELIVERED':
+            PickupRequest.objects.filter(
+                student=student,
+                status__in=['CREATED', 'ACCEPTED'] # الحالات النشطة في الموديل عندك
+            ).update(
+                status='COMPLETED', 
+                completed_at=timezone.now()
+            )
+            logger.info(f"PickupRequest for student {student.id} marked as COMPLETED.")
+            
+        # إذا عاد الطالب PRESENT، نلغي الطلب (يمكنك إضافة حالة CANCELLED للموديل أو حذفه)
+        elif new_status == 'PRESENT':
+            PickupRequest.objects.filter(
+                student=student,
+                status__in=['CREATED', 'ACCEPTED']
+            ).delete() # أو تحويله لـ Cancelled إذا أضفتها للموديل

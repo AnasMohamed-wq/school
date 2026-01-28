@@ -3,6 +3,8 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
+
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true" # لمنع أخطاء التزامن في بعض البيئات
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,13 +16,13 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 DEBUG = os.getenv('DEBUG') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 INSTALLED_APPS = [
     'daphne', # لتعامل مع بروتوكول ASGI
     'channels',
-
+  
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -34,6 +36,11 @@ INSTALLED_APPS = [
     
     'attendance',
 
+]
+
+CHANNELS_CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 REST_FRAMEWORK = {
@@ -127,7 +134,7 @@ AUTH_USER_MODEL = 'attendance.User'
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Riyadh'
 
 USE_I18N = True
 
