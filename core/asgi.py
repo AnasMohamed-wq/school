@@ -21,5 +21,6 @@ application = ProtocolTypeRouter({
             URLRouter(attendance.routing.websocket_urlpatterns)
         ),
         ["*"] # يسمح بالاتصال من أي مكان في مرحلة التطوير
+        #settings.CHANNELS_CORS_ALLOWED_ORIGINS     في مرحلة الانتاج 
     ),
 })

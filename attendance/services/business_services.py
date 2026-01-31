@@ -74,34 +74,33 @@ class AttendanceService:
         """
         تحديث حالة الطالب ومزامنة طلب الاستلام المرتبط به تلقائياً.
         """
-        current_status = student.status
-        
+        student_locked = Student.objects.select_for_update().get(id=student.id)
+        current_status = student_locked.status
+
         # 1. التحقق من صلاحية الانتقال (State Validation)
         StateService.validate_transition(current_status, new_status)
 
         # 2. تحديث حالة الطالب
-        student.change_status(new_status)
-        student.save(update_fields=['status'])
+        student_locked.change_status(new_status)
+        student_locked.save(update_fields=['status'])
 
-        # 3. إدارة حالة "طلب الاستلام" (PickupRequest)
         if new_status == 'DELIVERED':
-            # إغلاق الطلب عند التسليم النهائي
             PickupRequest.objects.filter(
-                student=student, 
-                status='CREATED'
-            ).update(status='COMPLETED', processed_by=teacher_user)
+                student=student_locked, 
+                status__in=['CREATED', 'ACCEPTED']
+            ).update(status='COMPLETED', processed_by=teacher_user, completed_at=timezone.now())
             
         elif new_status == 'PRESENT' and current_status == 'REQUESTED':
-            # في حال إلغاء الطلب وإعادة الطالب لحالة "حاضر"
+            # بدلاً من .delete()، نقوم بالتحديث لـ CANCELLED للحفاظ على السجل للتقارير
             PickupRequest.objects.filter(
-                student=student, 
-                status='CREATED'
+                student=student_locked, 
+                status__in=['CREATED', 'ACCEPTED']
             ).update(status='CANCELLED')
 
-        # 4. إرسال التحديثات عبر الـ WebSocket
-        WSService.broadcast_student_update(student)
+        # 4. البث عبر الـ WebSocket
+        WSService.broadcast_student_update(student_locked)
         
-        return student
+        return student_locked
     
 
 

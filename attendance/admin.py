@@ -1,332 +1,332 @@
 import uuid
 from django.contrib import admin, messages
 from django.utils import timezone
+from django.utils.html import format_html
 from django.db import models
-
 from .models import (
     User, School, SchoolManager, SchoolClass, Teacher,
     Parent, ParentSchool, Student, StudentParent,
-    PickupRequest, SmartScreen
+    PickupRequest, SmartScreen, StudentStatus
 )
 
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+# ----------------------------------------------------------------
+# 1. تخصيص واجهة الآدمين الرئيسية
+# ----------------------------------------------------------------
+admin.site.site_header = "نظام إدارة الانصراف الذكي"
+admin.site.site_title = "لوحة التحكم"
+admin.site.index_title = "إدارة العمليات المدرسية"
 
+# ----------------------------------------------------------------
+# 2. أدوات مساعدة (Mixins & Actions)
+# ----------------------------------------------------------------
+@admin.action(description='تفعيل العناصر المختارة')
+def make_active(modeladmin, request, queryset):
+    queryset.update(is_active=True)
 
-class SchoolManagerInline(admin.StackedInline):
-    model = SchoolManager
-    extra = 0
+@admin.action(description='تعطيل العناصر المختارة')
+def make_inactive(modeladmin, request, queryset):
+    queryset.update(is_active=False)
 
-
+# ----------------------------------------------------------------
+# 3. إدارة المستخدمين (User)
+# ----------------------------------------------------------------
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):
-    model = User
-    inlines = [SchoolManagerInline]
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'phone', 'colored_role', 'is_active', 'is_staff', 'created_at')
+    list_filter = ('role', 'is_active', 'is_staff', 'created_at')
+    search_fields = ('full_name', 'phone')
+    ordering = ('-created_at',)
+    actions = [make_active, make_inactive]
 
-    list_display = ('full_name', 'phone', 'role', 'is_active')
-    list_filter = ('role', 'is_active')
-    search_fields = ('phone', 'full_name')
-    ordering = ('phone',)
-
-    fieldsets = (
-        (None, {'fields': ('phone', 'password')}),
-        ('Personal info', {'fields': ('full_name',)}),
-        ('Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser')}),
-    )
-
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('phone', 'full_name', 'role', 'password1', 'password2'),
-        }),
-    )
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-
-        # مدير مدرسة يرى فقط مستخدمي مدرسته
-        try:
-            school = request.user.schoolmanager.school
-        except Exception:
-            return qs.none()
-
-        return qs.filter(
-            models.Q(teacher__school=school) |
-            models.Q(parent__parentschool__school=school)
-        ).distinct()
-    
-    def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
-    def has_module_permission(self, request):
-        if request.user.is_superuser:
-            return True
-        return request.user.role == 'MANAGER'
-    def has_view_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return request.user.role == 'MANAGER'
-
-
-
-
-# =====================================================
-# helpers
-# =====================================================
-
-def get_user_school(user):
-    if user.is_superuser:
-        return None
-    return getattr(getattr(user, 'schoolmanager', None), 'school', None)
-
-
-# =====================================================
-# Base Admin (School Scoped)
-# =====================================================
-
-class SchoolScopedAdmin(admin.ModelAdmin):
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-
-        if request.user.is_superuser:
-            return qs
-
-        school = get_user_school(request.user)
-        if not school:
-            return qs.none()
-
-        if hasattr(self.model, 'school'):
-            return qs.filter(school=school)
-
-        if self.model.__name__ == 'Student':
-            return qs.filter(school_class__school=school)
-
-        if self.model.__name__ == 'PickupRequest':
-            return qs.filter(student__school_class__school=school)
-
-        if self.model.__name__ == 'StudentParent':
-            return qs.filter(student__school_class__school=school)
-
-        return qs.none()
-
-
-    def save_model(self, request, obj, form, change):
-        if not request.user.is_superuser and hasattr(obj, 'school'):
-            obj.school = get_user_school(request.user)
-        super().save_model(request, obj, form, change)
-
-     # ===== السماح بالرؤية =====
-    def has_view_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return request.user.role == 'MANAGER'
-
-    # ===== السماح بالإضافة =====
-    def has_add_permission(self, request):
-        if request.user.is_superuser:
-            return True
-        return request.user.role == 'MANAGER'
-
-    # ===== السماح بالتعديل =====
-    def has_change_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return request.user.role == 'MANAGER'
-
-    # ===== منع الحذف (اختياري) =====
-    def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser:
-            return True
-        return False
-    def has_module_permission(self, request):
-        if request.user.is_superuser:
-            return True
-        return request.user.role == 'MANAGER'
-
-
-# =====================================================
-# Actions
-# =====================================================
-
-@admin.action(description='الموافقة على أولياء الأمور المختارين')
-def approve_parents(modeladmin, request, queryset):
-    school = get_user_school(request.user)
-
-    if not request.user.is_superuser and not school:
-        modeladmin.message_user(
-            request, "لا تملك مدرسة مرتبطة", messages.ERROR
+    @admin.display(description='الدور')
+    def colored_role(self, obj):
+        colors = {
+            'SUPER_ADMIN': 'red',
+            'MANAGER': 'blue',
+            'TEACHER': 'green',
+            'PARENT': 'orange',
+        }
+        # ✅ تصحيح: تمرير القيم كـ Arguments
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            colors.get(obj.role, 'black'),
+            obj.get_role_display()
         )
-        return
 
-    count = 0
-    for rel in queryset:
-        if not rel.is_approved:
-            rel.is_approved = True
-            rel.parent_school_token = rel.parent_school_token or f"ps_{uuid.uuid4().hex[:8]}"
-            rel.approved_by = request.user
-            rel.approved_at = timezone.now()
-            rel.save()
-            count += 1
-
-    modeladmin.message_user(
-        request, f"تمت الموافقة على {count} ولي أمر", messages.SUCCESS
-    )
-
-
-# =====================================================
-# Admins
-# =====================================================
+# ----------------------------------------------------------------
+# 4. إدارة المدارس والفصول (Structure)
+# ----------------------------------------------------------------
+class SchoolClassInline(admin.TabularInline):
+    model = SchoolClass
+    extra = 1
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
-    list_display = ('name', 'location_method', 'is_active')
-
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-
-
-@admin.register(SchoolManager)
-class SchoolManagerAdmin(admin.ModelAdmin):
-    list_display = ('user', 'school', 'is_active')
-
+    list_display = ('name', 'public_code', 'location_method', 'is_active')
+    search_fields = ('name', 'public_code')
+    list_filter = ('location_method', 'is_active')
+    inlines = [SchoolClassInline]
 
 @admin.register(SchoolClass)
-class SchoolClassAdmin(SchoolScopedAdmin):
+class SchoolClassAdmin(admin.ModelAdmin):
     list_display = ('name', 'number', 'school', 'is_active')
-    search_fields = ('name', 'number')
+    list_filter = ('school', 'is_active')
+    search_fields = ('name', 'number', 'school__name')
 
-
-@admin.register(Student)
-class StudentAdmin(SchoolScopedAdmin):
-    list_display = ('full_name', 'student_code', 'school_class', 'status')
-    search_fields = ('full_name', 'student_code')
-    list_filter = ('school_class', 'status')
-
-
+# ----------------------------------------------------------------
+# 5. المعلمون وأولياء الأمور (Profiles)
+# ----------------------------------------------------------------
 @admin.register(Teacher)
-class TeacherAdmin(SchoolScopedAdmin):
-    list_display = ('user', 'school', 'school_class')
-    search_fields = ('user__full_name',)
+class TeacherAdmin(admin.ModelAdmin):
+    list_display = ('get_name', 'school', 'school_class', 'get_phone', 'is_active')
+    list_filter = ('school', 'school_class', 'is_active')
+    search_fields = ('user__full_name', 'user__phone')
+    raw_id_fields = ('user',)
 
+    @admin.display(description='اسم المعلم')
+    def get_name(self, obj): return obj.user.full_name
+
+    @admin.display(description='الهاتف')
+    def get_phone(self, obj): return obj.user.phone
 
 @admin.register(Parent)
 class ParentAdmin(admin.ModelAdmin):
-    list_display = ('user', 'is_active')
+    list_display = ('get_name', 'get_phone', 'is_active')
     search_fields = ('user__full_name', 'user__phone')
+    raw_id_fields = ('user',)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
+    @admin.display(description='اسم ولي الأمر')
+    def get_name(self, obj): return obj.user.full_name
 
-        school = get_user_school(request.user)
-        return qs.filter(
-            parentschool__school=school
-        ).distinct()
+    @admin.display(description='الهاتف')
+    def get_phone(self, obj): return obj.user.phone
 
+# ----------------------------------------------------------------
+# 6. الطلاب (Students) - الجزء الأكثر تفصيلاً
+# ----------------------------------------------------------------
+class StudentParentInline(admin.TabularInline):
+    model = StudentParent
+    extra = 1
+    raw_id_fields = ('parent',)
+
+@admin.register(Student)
+class StudentAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'student_code', 'school_class', 'colored_status', 'is_active')
+    list_filter = ('school', 'school_class', 'status', 'is_active')
+    search_fields = ('full_name', 'student_code')
+    readonly_fields = ('student_code',)
+    inlines = [StudentParentInline]
+    ordering = ('school_class', 'full_name')
+
+    @admin.display(description='الحالة الحالية')
+    def colored_status(self, obj):
+        color_map = {
+            StudentStatus.PRESENT: 'gray',
+            StudentStatus.REQUESTED: 'orange',
+            StudentStatus.AT_GATE: 'blue',
+            StudentStatus.DELIVERED: 'green',
+        }
+        # ✅ تصحيح: تمرير القيم كـ Arguments
+        return format_html(
+            '<b style="color: {};">{}</b>',
+            color_map.get(obj.status, 'black'),
+            obj.get_status_display()
+        )
+
+# ----------------------------------------------------------------
+# 7. طلبات الاستلام (Pickup Requests)
+# ----------------------------------------------------------------
+@admin.register(PickupRequest)
+class PickupRequestAdmin(admin.ModelAdmin):
+    list_display = ('id', 'student', 'parent', 'status', 'requested_at', 'duration')
+    list_filter = ('status', 'school', 'requested_at')
+    search_fields = ('student__full_name', 'parent__user__full_name')
+    readonly_fields = ('requested_at', 'accepted_at', 'completed_at')
+    ordering = ('-requested_at',)
+
+    @admin.display(description='مدة الانتظار')
+    def duration(self, obj):
+        if obj.completed_at:
+            diff = obj.completed_at - obj.requested_at
+            return f"{int(diff.total_seconds() / 60)} دقيقة"
+        return "قيد الانتظار"
+
+# ----------------------------------------------------------------
+# 8. الشاشات الذكية (Smart Screens)
+# ----------------------------------------------------------------
+@admin.register(SmartScreen)
+class SmartScreenAdmin(admin.ModelAdmin):
+    list_display = ('screen_name', 'school', 'school_class', 'is_active', 'display_token')
+    readonly_fields = ('screen_token',)
+    list_filter = ('school', 'is_active')
+    search_fields = ('screen_name',)
+
+    @admin.display(description="رمز التوكن")
+    def display_token(self, obj):
+        # ✅ تصحيح: تمرير القيم كـ Arguments
+        return format_html('<code>{}</code>', obj.screen_token)
+# ----------------------------------------------------------------
+# تسجيل بقية الموديلات التكميلية
+# ----------------------------------------------------------------
+
+@admin.register(SchoolManager)
+class SchoolManagerAdmin(admin.ModelAdmin):
+    # عرض البيانات الهامة في الجدول
+    list_display = ('get_manager_name', 'get_manager_phone', 'school_info', 'status_badge')
+    list_filter = ('school', 'is_active')
+    search_fields = ('user__full_name', 'user__phone', 'school__name')
+    raw_id_fields = ('user', 'school') # لتسريع البحث إذا كثرت المدارس
+    
+    @admin.display(description='المدير')
+    def get_manager_name(self, obj):
+        return obj.user.full_name
+
+    @admin.display(description='رقم الهاتف')
+    def get_manager_phone(self, obj):
+        return obj.user.phone
+
+    @admin.display(description='المدرسة المرتبطة')
+    def school_info(self, obj):
+        # ✅ الطريقة الصحيحة: نضع {} كـ placeholder ونمرر القيم بعدها
+        return format_html(
+            '<strong style="color: #2c3e50;">{}</strong><br>'
+            '<small style="color: #7f8c8d;">كود: {}</small>',
+            obj.school.name,          # القيمة الأولى
+            obj.school.public_code    # القيمة الثانية
+        )
+   
+    @admin.display(description='حالة الحساب')
+    def status_badge(self, obj):
+        status_text = "نشط" if obj.is_active else "معطل"
+        color = "#27ae60" if obj.is_active else "#e74c3c"
+        bg = "#eafaf1" if obj.is_active else "#fdedec"
+        return format_html(
+            '<span style="color: {}; background: {}; padding: 4px 12px; border-radius: 10px; font-weight: bold;">{}</span>',
+            color, bg, status_text
+        )
+    
+    actions = ['activate_managers', 'deactivate_managers']
+
+    @admin.action(description="تنشيط حسابات المدراء")
+    def activate_managers(self, request, queryset):
+        queryset.update(is_active=True)
+    
+    @admin.action(description="تعطيل حسابات المدراء")
+    def deactivate_managers(self, request, queryset):
+        queryset.update(is_active=False)
 
 @admin.register(ParentSchool)
-class ParentSchoolAdmin(SchoolScopedAdmin):
+class ParentSchoolAdmin(admin.ModelAdmin):
     list_display = (
-        'parent_name', 'parent_phone', 'school',
-        'parent_school_token', 'is_approved'
+        'get_parent_name', 
+        'get_parent_phone', 
+        'school', 
+        'status_tag', 
+        'parent_school_token_styled', 
+        'approved_by_info',
     )
-    search_fields = (
-        'parent__user__full_name',
-        'parent__user__phone'
-    )
-    list_filter = ('is_approved',)
+    list_filter = ('is_approved', 'school', 'approved_at')
+    search_fields = ('parent__user__full_name', 'parent__user__phone', 'parent_school_token')
     readonly_fields = ('parent_school_token', 'approved_by', 'approved_at')
-    actions = [approve_parents]
 
-    @admin.display(description='Parent')
-    def parent_name(self, obj):
+    # --- تصحيح الدوال التي تسببت في الخطأ ---
+
+    @admin.display(description='الحالة')
+    def status_tag(self, obj):
+        status_text = "✅ معتمد" if obj.is_approved else "⏳ معلق"
+        bg = "#d4edda" if obj.is_approved else "#fff3cd"
+        color = "#155724" if obj.is_approved else "#856404"
+        return format_html(
+            '<span style="background: {}; color: {}; padding: 5px 10px; border-radius: 15px; font-weight: bold; font-size: 12px;">{}</span>',
+            bg, color, status_text
+        )
+    
+
+    @admin.display(description='التوكن الأمني')
+    def parent_school_token_styled(self, obj):
+        return format_html(
+            '<code style="color: #e83e8c; background: #f8f9fa; padding: 2px 5px; border-radius: 4px;">{}</code>',
+            obj.parent_school_token
+        )
+
+    @admin.display(description='معلومات الاعتماد')
+    def approved_by_info(self, obj):
+        if obj.is_approved and obj.approved_by:
+            return format_html(
+                '<div style="font-size: 11px; color: #666;">بواسطة: <b>{}</b><br>في: {}</div>',
+                obj.approved_by.full_name,
+                obj.approved_at.strftime('%Y-%m-%d %H:%M')
+            )
+        return "-"
+
+    # الميثودات المساعدة الأخرى
+    @admin.display(description='ولي الأمر')
+    def get_parent_name(self, obj):
         return obj.parent.user.full_name
 
-    @admin.display(description='Phone')
-    def parent_phone(self, obj):
+    @admin.display(description='الهاتف')
+    def get_parent_phone(self, obj):
         return obj.parent.user.phone
+
+    # --- الأفعال (Actions) ---
+
+    @admin.action(description='✅ الموافقة على الطلبات المختارة')
+    def bulk_approve(self, request, queryset):
+        updated = queryset.update(
+            is_approved=True,
+            approved_by=request.user,
+            approved_at=timezone.now()
+        )
+        self.message_user(request, f"تم اعتماد {updated} ولي أمر بنجاح.", messages.SUCCESS)
+
+    @admin.action(description='❌ إلغاء اعتماد الطلبات المختارة')
+    def bulk_disapprove(self, request, queryset):
+        queryset.update(is_approved=False, approved_by=None, approved_at=None)
+        self.message_user(request, "تم إلغاء اعتماد الطلبات.", messages.WARNING)
 
 
 @admin.register(StudentParent)
 class StudentParentAdmin(admin.ModelAdmin):
-    list_display = ('parent_name', 'student_name', 'student_class')
+    # عرض معلومات الطالب وولي الأمر جنباً إلى جنب
+    list_display = ('student_card', 'parent_card', 'class_info', 'action_links')
+    list_filter = ('student__school', 'student__school_class')
     search_fields = (
-        'parent__user__full_name',
-        'student__full_name'
+        'student__full_name', 
+        'student__student_code', 
+        'parent__user__full_name', 
+        'parent__user__phone'
     )
+    raw_id_fields = ('student', 'parent')
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-
-        school = get_user_school(request.user)
-        return qs.filter(student__school=school)
-
-    @admin.display(description='Parent')
-    def parent_name(self, obj):
-        return obj.parent.user.full_name
-
-    @admin.display(description='Student')
-    def student_name(self, obj):
-        return obj.student.full_name
-
-    @admin.display(description='Class')
-    def student_class(self, obj):
-        return obj.student.school_class.name
+    @admin.display(description='بيانات الطالب')
+    def student_card(self, obj):
+        return format_html(
+            '<div style="border-left: 4px solid #3498db; padding-left: 10px;"><b>{}</b><br><small style="color: #666;">كود: {}</small></div>',
+            obj.student.full_name, obj.student.student_code
+        )
 
 
-@admin.register(PickupRequest)
-class PickupRequestAdmin(admin.ModelAdmin):
-    list_display = (
-        'student_name', 'student_class',
-        'parent_name', 'status',
-        'student_status', 'requested_at'
-    )
+    @admin.display(description='ولي الأمر المرتبط')
+    def parent_card(self, obj):
+        return format_html(
+            '<div style="border-left: 4px solid #f1c40f; padding-left: 10px;"><b>{}</b><br><small style="color: #666;">هاتف: {}</small></div>',
+            obj.parent.user.full_name, obj.parent.user.phone
+        )
 
-    search_fields = (
-        'student__full_name',
-        'parent__user__full_name',
-        'student__school_class__name',
-        'student__school_class__number',
-    )
-
-    list_filter = ('status', 'student__school_class')
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-
-        school = get_user_school(request.user)
-        return qs.filter(student__school=school)
-
-    def student_name(self, obj):
-        return obj.student.full_name
-
-    def student_class(self, obj):
-        return obj.student.school_class.name
-
-    def parent_name(self, obj):
-        return obj.parent.user.full_name
-
-    def student_status(self, obj):
-        return obj.student.status
-
-
-@admin.register(SmartScreen)
-class SmartScreenAdmin(SchoolScopedAdmin):
-    list_display = (
-        'screen_name', 'school_class',
-        'school', 'screen_token', 'is_active'
-    )
-    search_fields = (
-        'school_class__name',
-        'school_class__number'
-    )
-    list_filter = ('is_active',)
+    @admin.display(description='الفصل الدراسي')
+    def class_info(self, obj):
+        return format_html(
+            '<span style="background: #f8f9fa; border: 1px solid #ddd; padding: 3px 8px; border-radius: 5px;">'
+            '{}</span>',
+            obj.student.school_class.name
+        )
+    
+    @admin.display(description='روابط سريعة')
+    def action_links(self, obj):
+        # ملاحظة: تأكد أن اسم الـ app هو 'attendance' في الروابط أدناه
+        student_url = f"/admin/attendance/student/{obj.student.id}/change/"
+        parent_url = f"/admin/attendance/parent/{obj.parent.id}/change/"
+        return format_html(
+            '<a href="{}" style="color: #3498db;">👤 الطالب</a> | <a href="{}" style="color: #f39c12;">👨‍👩‍👧 ولي الأمر</a>',
+            student_url, parent_url
+        )

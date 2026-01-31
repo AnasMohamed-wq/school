@@ -48,13 +48,24 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '10/minute',  # يسمح لغير المسجلين بـ 10 طلبات في الدقيقة
+        'user': '1000/day',   # يسمح للمسجلين بـ 1000 طلب في اليوم
+        'password_reset_limit': '3/minute', # للمسار الذي خصصناه سابقاً
+    }
+
 }
 
 
 
 
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # مدة صلاحية مفتاح الدخول
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5), # مدة صلاحية مفتاح الدخول
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # مدة صلاحية مفتاح التجديد
     'ROTATE_REFRESH_TOKENS': True,
     'AUTH_HEADER_TYPES': ('Bearer',),  # الكلمة التي توضع قبل التوكن في الـ Header
@@ -107,6 +118,13 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT'),
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 

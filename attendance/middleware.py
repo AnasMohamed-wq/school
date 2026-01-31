@@ -3,6 +3,9 @@ from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.tokens import AccessToken
 from django.contrib.auth import get_user_model
 from urllib.parse import parse_qs
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -30,7 +33,8 @@ class JWTAuthMiddleware:
             try:
                 access_token = AccessToken(token)
                 user_id = access_token['user_id']
-                scope['user'] = await get_user(user_id)
+                if user_id:
+                    scope['user'] = await get_user(user_id)
             except Exception:
                 pass
 

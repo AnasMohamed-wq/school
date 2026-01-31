@@ -28,7 +28,7 @@ class ManagerStudentSerializer(serializers.ModelSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['full_name', 'phone']
+        fields = ['full_name', 'phone','national_id']
 
 
 class ManagerParentSerializer(serializers.ModelSerializer):

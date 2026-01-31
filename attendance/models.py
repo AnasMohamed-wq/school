@@ -23,7 +23,7 @@ class StudentStatus:
     # مصفوفة الانتقالات المسموحة
     TRANSITIONS = {
         PRESENT: [REQUESTED],
-        REQUESTED: [AT_GATE, PRESENT], # سمحنا بالعودة لـ Present في حال الإلغاء
+        REQUESTED: [AT_GATE, PRESENT,DELIVERED], # سمحنا بالعودة لـ Present في حال الإلغاء
         AT_GATE: [DELIVERED],
         DELIVERED: [], 
     }
@@ -54,6 +54,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=255)
     phone = models.CharField(max_length=20, unique=True)
     role = models.CharField(max_length=20, choices=ROLES)
+    national_id=models.CharField(max_length=100,unique=True,null=True,blank=True ,
+                                 verbose_name="الرقم الوطني أو رقم الهوية/الجواز")
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -256,6 +258,7 @@ class PickupRequest(models.Model):
         ('CREATED', 'Created'),
         ('ACCEPTED', 'Accepted'),
         ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled')
     )
 
 
@@ -298,6 +301,7 @@ class SmartScreen(models.Model):
         if not self.screen_token:
             self.screen_token = self.generate_screen_token()
         super().save(*args, **kwargs)
+
 
 
 

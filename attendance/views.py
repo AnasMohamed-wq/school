@@ -9,7 +9,33 @@ from .services.notification_services import *
 from .permissions import IsAuthenticatedAndActive, IsParent , IsTeacher ,IsSchoolManager, authorize_request # استيراد الصلاحيات
 from .models import *
 from django.shortcuts import get_object_or_404
+from rest_framework.throttling import AnonRateThrottle
 
+
+from rest_framework.pagination import PageNumberPagination
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 20  # عدد الطلاب في الصفحة
+    page_size_query_param = 'page_size' # يسمح للفرنت إند بطلب عدد أكبر إذا أراد
+    max_page_size = 100
+
+
+#rest passward 
+class PasswordResetView(APIView):
+    # لا نحتاج لمصادقة هنا لأن المستخدم قد نسي كلمة السر أصلاً
+    permission_classes = [AllowAny] 
+    throttle_classes = [AnonRateThrottle]
+    throttle_scope = 'password_reset_limit'
+
+    def post(self, request):
+        serializer =common.PasswordResetSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"detail": "تم تغيير كلمة السر بنجاح. يمكنك الآن تسجيل الدخول."},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
 
 
 # login
@@ -75,6 +101,7 @@ class ParentSchoolListView(generics.ListAPIView):
     """عرض المدارس المرتبط بها ولي الأمر وموافقة الإدارة عليها"""
     permission_classes = [IsAuthenticatedAndActive, IsParent]
     serializer_class = common.SchoolSerializer
+    
 
     def get_queryset(self):
         # (4.2) لا نعتمد على الفلترة فقط، بل نضمن أن العلاقة مفعلة (is_approved)
@@ -170,6 +197,7 @@ class ActiveRequestsView(generics.ListAPIView):
     """عرض الطلبات النشطة (التي لم تكتمل بعد) للفصل"""
     permission_classes = [IsAuthenticatedAndActive, IsTeacher]
     serializer_class = teacher.TeacherPickupRequestSerializer
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -221,10 +249,15 @@ class StudentActionView(APIView):
             }, status=status.HTTP_200_OK)
 
         except ValidationError as e:
-            return Response({"detail": str(e.detail)}, status=status.HTTP_400_BAD_REQUEST)
+            # هذا سيعطيك السبب الحقيقي (مثلاً: انتقال غير مسموح)
+            return Response({"detail": e.detail}, status=400)
         except Exception as e:
-            return Response({"detail": "حدث خطأ غير متوقع أثناء التحديث"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+            # أضف هذا السطر لترى الخطأ في التيرمينال عندك
+            print(f"CRITICAL ERROR: {str(e)}") 
+            return Response({"detail": f"خطأ تقني: {str(e)}"}, status=500)
+        
+
+        
 class UnifiedStudentActionView(APIView):
     permission_classes = [IsAuthenticatedAndActive, IsTeacher]
 

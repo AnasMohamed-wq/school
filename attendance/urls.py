@@ -4,13 +4,15 @@ from .views import (
     ParentSchoolListView, StudentListView, CreateRequestView,
     ClassDashboardView, ActiveRequestsView,
     ApprovalActionView ,StudentActionView ,
-    UnifiedStudentActionView
+    UnifiedStudentActionView ,
+    PasswordResetView
 )
 
 urlpatterns = [
     # --- المسار العام (المصادقة) ---
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/logout/', LogoutView.as_view(), name='logout'), # المسار الجديد
+    path('auth/reset-password/', PasswordResetView.as_view(), name='password-reset'),
 
     # --- مسارات ولي الأمر (Parent) ---
     path('parent/schools/', ParentSchoolListView.as_view(), name='parent-schools'),

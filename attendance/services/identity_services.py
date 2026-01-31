@@ -1,6 +1,15 @@
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
+
+User = get_user_model()
+      
 
 class AuthService:
     @staticmethod
@@ -29,6 +38,40 @@ class AuthService:
         except Exception:
             raise AuthenticationFailed("التوكن غير صالح أو منتهي الصلاحية")
         
+    
+    @staticmethod
+    def verify_identity_for_reset(phone, national_id):
+        """التحقق من الهوية (نفس منطقك السابق)"""
+        try:
+            user = User.objects.get(phone=phone)
+        except User.DoesNotExist:
+            raise ValidationError("لا يوجد مستخدم مسجل بهذا الرقم.")
+
+        if not user.national_id:
+            raise ValidationError("الهوية غير معرفة. راجع الإدارة.")
+
+        if user.national_id != national_id:
+            raise ValidationError("بيانات الهوية غير متطابقة.")
+        
+        return user
+
+    @staticmethod
+    @transaction.atomic
+    def reset_password(phone, national_id, new_password):
+        """الدالة المركزية لتغيير كلمة السر"""
+        # 1. التحقق من الهوية
+        user = AuthService.verify_identity_for_reset(phone, national_id)
+        
+        # 2. التغيير الفعلي
+        user.set_password(new_password)
+        user.save()
+        
+        logger.info(f"تم تغيير كلمة السر للمستخدم {user.phone} بنجاح.")
+        return user
+        
+    
+
+    
         
 
 class AccessService:
