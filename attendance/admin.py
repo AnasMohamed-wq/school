@@ -3,11 +3,90 @@ from django.contrib import admin, messages
 from django.utils import timezone
 from django.utils.html import format_html
 from django.db import models
+from django.db.models import Q
 from .models import (
     User, School, SchoolManager, SchoolClass, Teacher,
     Parent, ParentSchool, Student, StudentParent,
     PickupRequest, SmartScreen, StudentStatus
 )
+
+
+
+class SchoolIsolatedAdmin(admin.ModelAdmin):
+    """كلاس أساسي لعزل البيانات بناءً على مدرسة المدير"""
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        
+        # 1. السوبر آدمين يرى كل شيء
+        if request.user.is_superuser:
+            return qs
+        
+        # 2. التحقق من وجود حساب مدير مدرسة
+        manager = getattr(request.user, 'schoolmanager', None)
+        if manager:
+            # --- حالة موديل المستخدم User ---
+            # if self.model == User:
+            #     # المعلمون التابعون للمدير في مدرسته
+            #     teacher_user_ids = Teacher.objects.filter(school=manager.school).values_list('user_id', flat=True)
+            #     # يرى نفسه + معلميه + أي مستخدم دوره أب
+            #     return qs.filter(
+            #         Q(id=request.user.id) | 
+            #         Q(id__in=teacher_user_ids) | 
+            #         Q(role='PARENT')
+            #     )
+
+            # # --- حالة موديل الأب Parent ---
+            # if self.model == Parent:
+            #     # نرجع الكل ليتمكن من البحث عن الأب وربطه بالطالب
+            #     return qs
+
+            # --- الموديلات التي تحتوي حقل مدرسة مباشر ---
+            if hasattr(self.model, 'school'):
+                return qs.filter(school=manager.school)
+            
+            # --- الموديلات المرتبطة بطالب (مثل StudentParent) ---
+            elif hasattr(self.model, 'student'):
+                return qs.filter(student__school=manager.school)
+
+            return qs
+            
+        # إذا لم يكن مديراً ولا سوبر آدمين (مثل المعلم)
+        return qs.none()
+    
+    def save_model(self, request, obj, form, change):
+        # ربط العنصر بمدرسة المدير تلقائياً عند الإنشاء
+        if not request.user.is_superuser:
+            manager = getattr(request.user, 'schoolmanager', None)
+            if manager and hasattr(obj, 'school'):
+                obj.school = manager.school
+        super().save_model(request, obj, form, change)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """تقييد القوائم المنسدلة ليرى المدير فقط بيانات مدرسته"""
+        if not request.user.is_superuser:
+            manager = getattr(request.user, 'schoolmanager', None)
+            if manager:
+                # 1. إذا كان الحقل يشير للمدرسة
+                if db_field.name == "school":
+                    kwargs["queryset"] = School.objects.filter(id=manager.school.id)
+                
+                # 2. إذا كان الحقل يشير للفصل (موجود في Teacher, Student, SmartScreen)
+                if db_field.name == "school_class":
+                    kwargs["queryset"] = SchoolClass.objects.filter(school=manager.school)
+                
+                # 3. إذا كان الحقل يشير للطالب (موجود في PickupRequest, StudentParent)
+                if db_field.name == "student":
+                    kwargs["queryset"] = Student.objects.filter(school=manager.school)
+                
+                # 4. إذا كان الحقل يشير لولي الأمر (موجود في PickupRequest, StudentParent)
+                # ملاحظة: أولياء الأمور ليس لديهم حقل مدرسة مباشر، لذا نظهرهم جميعاً 
+                # أو نفلتر المرتبطين بالمدرسة عبر ParentSchool
+                if db_field.name == "parent":
+                    parent_ids = ParentSchool.objects.filter(school=manager.school).values_list('parent_id', flat=True)
+                    kwargs["queryset"] = Parent.objects.filter(id__in=parent_ids)
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 # ----------------------------------------------------------------
 # 1. تخصيص واجهة الآدمين الرئيسية
@@ -30,13 +109,18 @@ def make_inactive(modeladmin, request, queryset):
 # ----------------------------------------------------------------
 # 3. إدارة المستخدمين (User)
 # ----------------------------------------------------------------
+# ----------------------------------------------------------------
+# 3. إدارة المستخدمين (User)
+# ----------------------------------------------------------------
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'phone', 'colored_role', 'is_active', 'is_staff', 'created_at')
     list_filter = ('role', 'is_active', 'is_staff', 'created_at')
     search_fields = ('full_name', 'phone')
     ordering = ('-created_at',)
-    actions = [make_active, make_inactive]
+    
+    # تعريف واحد شامل لجميع الـ Actions
+    actions = ['make_active_users', 'make_inactive_users', 'setup_manager_group']
 
     @admin.display(description='الدور')
     def colored_role(self, obj):
@@ -46,12 +130,105 @@ class UserAdmin(admin.ModelAdmin):
             'TEACHER': 'green',
             'PARENT': 'orange',
         }
-        # ✅ تصحيح: تمرير القيم كـ Arguments
         return format_html(
             '<span style="color: {}; font-weight: bold;">{}</span>',
             colors.get(obj.role, 'black'),
             obj.get_role_display()
         )
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        
+        manager = getattr(request.user, 'schoolmanager', None)
+        if manager:
+            # جلب المعلمين التابعين لمدرسته
+            teacher_ids = Teacher.objects.filter(school=manager.school).values_list('user_id', flat=True)
+            # الفلترة: نفسه + معلميه + كل من هو ولي أمر
+            return qs.filter(Q(id=request.user.id) | Q(id__in=teacher_ids) | Q(role='PARENT'))
+        return qs.none()
+    
+    def get_readonly_fields(self, request, obj=None):
+        # إذا كان سوبر أدمن
+        if request.user.is_superuser:
+            return ['created_at', 'last_login']
+            
+        # إذا كان مديراً
+        if obj: # عند التعديل
+            return ['phone', 'role', 'national_id', 'created_at']
+        return ['created_at']
+    
+    def get_fieldsets(self, request, obj=None):
+        """تخصيص الحقول التي تظهر بناءً على نوع المستخدم"""
+        # إذا كان سوبر أدمن، تظهر كل الحقول (الوضع الافتراضي)
+        if request.user.is_superuser:
+            return [
+                (None, {'fields': ('phone', 'password')}),
+                ('معلومات الشخصية', {'fields': ('full_name', 'national_id', 'role')}),
+                ('الصلاحيات', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+                ('التواريخ', {'fields': ('last_login', 'created_at')}),
+            ]
+        
+        # إذا كان مديراً، تظهر المعلومات الأساسية فقط ويختفي صندوق الصلاحيات والتواريخ
+        return [
+            (None, {'fields': ('phone',)}),
+            ('معلومات الشخصية', {'fields': ('full_name', 'national_id', 'role', 'is_active')}),
+        ]
+
+    
+    
+    
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser: return True
+        if request.user.role == 'MANAGER': return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser: return True
+        if request.user.role == 'MANAGER': return False
+        return super().has_delete_permission(request, obj)
+
+    # أكشن لتفعيل المستخدمين
+    @admin.action(description='✅ تفعيل المستخدمين المختارة')
+    def make_active_users(self, request, queryset):
+        queryset.update(is_active=True)
+        self.message_user(request, "تم تفعيل المستخدمين بنجاح.")
+
+    # أكشن لتعطيل المستخدمين
+    @admin.action(description='❌ تعطيل المستخدمين المختارة')
+    def make_inactive_users(self, request, queryset):
+        queryset.update(is_active=False)
+        self.message_user(request, "تم تعطيل المستخدمين بنجاح.")
+
+    # الأكشن الأهم الخاص بالصلاحيات
+    @admin.action(description='🛠️ إنشاء/تحديث صلاحيات مجموعة مدراء المدارس')
+    def setup_manager_group(self, request, queryset):
+        from django.contrib.auth.models import Group, Permission
+        from django.contrib.contenttypes.models import ContentType
+        
+        group, created = Group.objects.get_or_create(name='School Managers')
+        
+        # الموديلات التي يحكمها المدير
+        all_models = [Student, Teacher, SchoolClass, SmartScreen, PickupRequest, ParentSchool, StudentParent, User, Parent]
+        
+        for model in all_models:
+            content_type = ContentType.objects.get_for_model(model)
+            
+            # حالة خاصة: المستخدمين والآباء (رؤية وإضافة فقط)
+            if model in [User, Parent]:
+                perms = Permission.objects.filter(
+                    content_type=content_type, 
+                    codename__in=[f'view_{model._meta.model_name}', f'add_{model._meta.model_name}']
+                )
+            else:
+                # بقية الموديلات: صلاحيات كاملة
+                perms = Permission.objects.filter(content_type=content_type)
+            
+            for perm in perms:
+                group.permissions.add(perm)
+        
+        self.message_user(request, "تم تحديث الصلاحيات: (User/Parent) رؤية وإضافة فقط، البقية كاملة.", messages.SUCCESS)
 
 # ----------------------------------------------------------------
 # 4. إدارة المدارس والفصول (Structure)
@@ -62,14 +239,14 @@ class SchoolClassInline(admin.TabularInline):
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
-    list_display = ('name', 'public_code', 'location_method', 'is_active')
+    list_display = ('name', 'public_code', 'location_method','id', 'is_active')
     search_fields = ('name', 'public_code')
     list_filter = ('location_method', 'is_active')
     inlines = [SchoolClassInline]
 
 @admin.register(SchoolClass)
-class SchoolClassAdmin(admin.ModelAdmin):
-    list_display = ('name', 'number', 'school', 'is_active')
+class SchoolClassAdmin(SchoolIsolatedAdmin):
+    list_display = ('name', 'number', 'school','id' ,'is_active')
     list_filter = ('school', 'is_active')
     search_fields = ('name', 'number', 'school__name')
 
@@ -77,7 +254,7 @@ class SchoolClassAdmin(admin.ModelAdmin):
 # 5. المعلمون وأولياء الأمور (Profiles)
 # ----------------------------------------------------------------
 @admin.register(Teacher)
-class TeacherAdmin(admin.ModelAdmin):
+class TeacherAdmin(SchoolIsolatedAdmin):
     list_display = ('get_name', 'school', 'school_class', 'get_phone', 'is_active')
     list_filter = ('school', 'school_class', 'is_active')
     search_fields = ('user__full_name', 'user__phone')
@@ -95,11 +272,31 @@ class ParentAdmin(admin.ModelAdmin):
     search_fields = ('user__full_name', 'user__phone')
     raw_id_fields = ('user',)
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        
+        # المدير يرى جميع أولياء الأمور ليتمكن من ربطهم بالطلاب
+        if hasattr(request.user, 'schoolmanager'):
+            return qs
+        return qs.none()
+
     @admin.display(description='اسم ولي الأمر')
     def get_name(self, obj): return obj.user.full_name
 
     @admin.display(description='الهاتف')
     def get_phone(self, obj): return obj.user.phone
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser: return True
+        if request.user.role == 'MANAGER': return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser: return True
+        if request.user.role == 'MANAGER': return False
+        return super().has_delete_permission(request, obj)
 
 # ----------------------------------------------------------------
 # 6. الطلاب (Students) - الجزء الأكثر تفصيلاً
@@ -110,7 +307,7 @@ class StudentParentInline(admin.TabularInline):
     raw_id_fields = ('parent',)
 
 @admin.register(Student)
-class StudentAdmin(admin.ModelAdmin):
+class StudentAdmin(SchoolIsolatedAdmin):
     list_display = ('full_name', 'student_code', 'school_class', 'colored_status', 'is_active')
     list_filter = ('school', 'school_class', 'status', 'is_active')
     search_fields = ('full_name', 'student_code')
@@ -137,7 +334,7 @@ class StudentAdmin(admin.ModelAdmin):
 # 7. طلبات الاستلام (Pickup Requests)
 # ----------------------------------------------------------------
 @admin.register(PickupRequest)
-class PickupRequestAdmin(admin.ModelAdmin):
+class PickupRequestAdmin(SchoolIsolatedAdmin):
     list_display = ('id', 'student', 'parent', 'status', 'requested_at', 'duration')
     list_filter = ('status', 'school', 'requested_at')
     search_fields = ('student__full_name', 'parent__user__full_name')
@@ -155,7 +352,7 @@ class PickupRequestAdmin(admin.ModelAdmin):
 # 8. الشاشات الذكية (Smart Screens)
 # ----------------------------------------------------------------
 @admin.register(SmartScreen)
-class SmartScreenAdmin(admin.ModelAdmin):
+class SmartScreenAdmin(SchoolIsolatedAdmin):
     list_display = ('screen_name', 'school', 'school_class', 'is_active', 'display_token')
     readonly_fields = ('screen_token',)
     list_filter = ('school', 'is_active')
@@ -216,7 +413,7 @@ class SchoolManagerAdmin(admin.ModelAdmin):
         queryset.update(is_active=False)
 
 @admin.register(ParentSchool)
-class ParentSchoolAdmin(admin.ModelAdmin):
+class ParentSchoolAdmin(SchoolIsolatedAdmin):
     list_display = (
         'get_parent_name', 
         'get_parent_phone', 
@@ -286,7 +483,7 @@ class ParentSchoolAdmin(admin.ModelAdmin):
 
 
 @admin.register(StudentParent)
-class StudentParentAdmin(admin.ModelAdmin):
+class StudentParentAdmin(SchoolIsolatedAdmin):
     # عرض معلومات الطالب وولي الأمر جنباً إلى جنب
     list_display = ('student_card', 'parent_card', 'class_info', 'action_links')
     list_filter = ('student__school', 'student__school_class')

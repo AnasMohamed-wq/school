@@ -2,26 +2,32 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+import dj_database_url
 
-
-os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true" # لمنع أخطاء التزامن في بعض البيئات
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "false" # لمنع أخطاء التزامن في بعض البيئات
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
 
 
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 
-DEBUG = os.getenv('DEBUG') == 'True'
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+
+
 
 
 INSTALLED_APPS = [
     'daphne', # لتعامل مع بروتوكول ASGI
     'channels',
+    'corsheaders',
   
     'django.contrib.admin',
     'django.contrib.auth',
@@ -33,6 +39,7 @@ INSTALLED_APPS = [
     # تطبيقات المشروع
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+
     
     'attendance',
 
@@ -42,6 +49,22 @@ CHANNELS_CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+
+if not DEBUG:
+    # لا تسمح بالوصول إلا عبر نطاق المدرسة الرسمي
+
+    
+    # إعدادات الـ HTTPS
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    # إخبار Django أن Nginx هو من يقوم بتشفير الـ SSL
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 REST_FRAMEWORK = {
     'COERCE_DECIMAL_TO_STRING': True,
@@ -53,9 +76,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '10/minute',  # يسمح لغير المسجلين بـ 10 طلبات في الدقيقة
+        'anon': '5/minute',  # يسمح لغير المسجلين بـ 10 طلبات في الدقيقة
         'user': '1000/day',   # يسمح للمسجلين بـ 1000 طلب في اليوم
-        'password_reset_limit': '3/minute', # للمسار الذي خصصناه سابقاً
+        'password_reset_limit': '3/hour', # للمسار الذي خصصناه سابقاً
     }
 
 }
@@ -77,7 +100,10 @@ SIMPLE_JWT = {
 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -107,17 +133,24 @@ ASGI_APPLICATION = 'core.asgi.application'
 
 
 
-
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
-    }
+    'default': dj_database_url.config(
+        # يحاول قراءة DATABASE_URL من البيئة، وإذا لم يجدها يستخدم القيمة الافتراضية
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600
+    )
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DB_NAME'),
+#         'USER': os.getenv('DB_USER'),
+#         'PASSWORD': os.getenv('DB_PASSWORD'),
+#         'HOST': os.getenv('DB_HOST'),
+#         'PORT': os.getenv('DB_PORT'),
+#     }
+# }
 
 # DATABASES = {
 #     'default': {
@@ -168,7 +201,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)], 
+            "hosts": [os.getenv('REDIS_URL')], 
         },
     },
 }
@@ -176,3 +209,33 @@ CHANNEL_LAYERS = {
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # المجلد الذي ستجمع فيه الملفات
+
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/django_error.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+}

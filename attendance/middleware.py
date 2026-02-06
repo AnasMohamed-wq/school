@@ -35,7 +35,9 @@ class JWTAuthMiddleware:
                 user_id = access_token['user_id']
                 if user_id:
                     scope['user'] = await get_user(user_id)
-            except Exception:
-                pass
+            except Exception as e:
+                # تسجيل الخطأ في اللوج دون إيقاف السيرفر
+                logger.debug(f"WebSocket Auth Error: {e}")
 
         return await self.app(scope, receive, send)
+

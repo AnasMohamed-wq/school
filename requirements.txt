@@ -59,3 +59,7 @@ uritemplate==4.2.0
 urllib3==2.6.3
 zope.event==6.1
 zope.interface==8.2
+django-cors-headers
+whitenoise
+dj-database-url
+python-dotenv

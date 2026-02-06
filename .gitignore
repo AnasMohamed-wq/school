@@ -9,3 +9,4 @@ local_settings.py
 Simulator_request.py
 venv/
 media/
+logs/

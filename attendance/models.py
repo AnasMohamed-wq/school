@@ -6,6 +6,16 @@ from django.core.exceptions import ValidationError
 import uuid
 import secrets , random , string 
 
+
+class ClassSequence(models.Model):
+    school = models.ForeignKey('School', on_delete=models.CASCADE)
+    school_class = models.ForeignKey('SchoolClass', on_delete=models.CASCADE)
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('school', 'school_class')
+        verbose_name = "تسلسل طلاب الفصل"
+
 # تعريف الحالات في كلاس منفصل ليكون المرجع الوحيد
 class StudentStatus:
     PRESENT = 'PRESENT'
@@ -109,16 +119,16 @@ class School(models.Model):
     location_method = models.CharField(max_length=10, choices=LOCATION_METHODS)
     is_active = models.BooleanField(default=True)
 
-    def generate_public_code(self):
-        """
-        يولد كودًا عامًا للمدرسة
-        مثال: SCH-48392
-        """
-        return f"SCH-{random.randint(10000, 99999)}"
-
+   
     def save(self, *args, **kwargs):
+        from .services.identity_services import IdentityService
         if not self.public_code:
-            self.public_code = self.generate_public_code()
+
+            self.public_code = IdentityService.generate_unique_public_code(
+                model_class=School, 
+                field_name='public_code'
+              
+            )
         super().save(*args, **kwargs)
 
 
@@ -145,6 +155,10 @@ class SchoolClass(models.Model):
     def __str__(self):
         return f"{self.school.name} - {self.name}"
     
+    class Meta:
+        verbose_name = "School Class"
+        verbose_name_plural = "School Classes"
+    
 
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -165,7 +179,7 @@ class ParentSchool(models.Model):
     parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
     school = models.ForeignKey(School, on_delete=models.CASCADE)
     parent_school_token = models.CharField(max_length=255, unique=True)
-    is_approved = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False ,db_index=True)
     approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     approved_at = models.DateTimeField(null=True, blank=True)
   
@@ -181,8 +195,13 @@ class ParentSchool(models.Model):
         return f"ps_{secrets.token_urlsafe(32)}"
 
     def save(self, *args, **kwargs):
+        from .services.identity_services import IdentityService
         if not self.parent_school_token:
-            self.parent_school_token = self.generate_parent_school_token()
+         self.parent_school_token = IdentityService.generate_unique_public_code(
+                model_class=ParentSchool, 
+                field_name='parent_school_token',
+                length=32
+            )
         super().save(*args, **kwargs)
     
     
@@ -194,27 +213,8 @@ class Student(models.Model):
     school_class = models.ForeignKey(SchoolClass, on_delete=models.CASCADE)
     full_name = models.CharField(max_length=255)
     student_code = models.CharField(max_length=100 , unique=True)
-    status = models.CharField(max_length=20, choices=StudentStatus.CHOICES, default=StudentStatus.PRESENT)
+    status = models.CharField(max_length=20,db_index=True, choices=StudentStatus.CHOICES, default=StudentStatus.PRESENT)
     is_active = models.BooleanField(default=True)
-
-
-    def generate_student_code(self):
-        """
-        مثال:
-        SCH1-CLS3-0007
-        """
-        school_part = f"SCH{self.school.id}"
-        class_part = f"CLS{self.school_class.id}"
-
-        last_student = (
-            Student.objects
-            .filter(school=self.school, school_class=self.school_class)
-            .exclude(student_code='')
-            .count()
-            + 1
-        )
-
-        return f"{school_part}-{class_part}-{str(last_student).zfill(4)}"
 
 
     # (1.1) حماية حالة الطالب داخل الموديل
@@ -230,8 +230,13 @@ class Student(models.Model):
         self.status = new_status
 
     def save(self, *args, **kwargs):
-        if not self.student_code:
-            self.student_code = self.generate_student_code()
+        # نولد الكود فقط إذا كان الطالب جديداً (ليس له id بعد) والكود فارغ
+        if not self.pk and not self.student_code:
+            from .services.business_services import StudentService
+            self.student_code = StudentService.get_next_student_code(
+                self.school, 
+                self.school_class
+            )
         super().save(*args, **kwargs)
 
 
@@ -265,7 +270,7 @@ class PickupRequest(models.Model):
     school = models.ForeignKey(School, on_delete=models.CASCADE)
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='CREATED')
+    status = models.CharField(max_length=20,db_index=True,choices=STATUS_CHOICES, default='CREATED')
     requested_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -279,6 +284,8 @@ class PickupRequest(models.Model):
                 name='unique_active_pickup_request'
             )
         ]
+
+
 
     def clean(self):
         # ضمان أن الطالب والمدرسة والطلب في نطاق واحد
@@ -298,8 +305,13 @@ class SmartScreen(models.Model):
         return str(uuid.uuid4())
 
     def save(self, *args, **kwargs):
+        from .services.identity_services import IdentityService
         if not self.screen_token:
-            self.screen_token = self.generate_screen_token()
+            self.screen_token = IdentityService.generate_unique_public_code(
+                model_class=SmartScreen, 
+                field_name='screen_token',
+                length=40
+            )
         super().save(*args, **kwargs)
 
 

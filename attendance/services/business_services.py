@@ -1,6 +1,6 @@
 from django.db import transaction
 from math import radians, cos, sin, asin, sqrt
-from ..models import PickupRequest, Student , StudentStatus
+from ..models import PickupRequest, Student , StudentStatus , StudentParent ,ClassSequence
 from rest_framework.exceptions import ValidationError
 from .notification_services import WSService
 import logging
@@ -11,25 +11,38 @@ logger = logging.getLogger(__name__)
 
 class LocationService:
     @staticmethod
-    def verify_proximity(school, *,user_lat=None, user_lng=None, barcode=None, wifi_ssid=None):
-        """التحقق حسب الطريقة المعتمدة في المدرسة"""
+    def verify_proximity(school, *, user_lat=None, user_lng=None, barcode=None, wifi_ssid=None):
         method = school.location_method
 
         if method == 'GPS':
-            if not (user_lat and user_lng): return False
-            R = 6371008.8
-            lat1, lon1, lat2, lon2 = map(radians, [float(user_lat), float(user_lng), float(school.location_lat), float(school.location_lng)])
+            if user_lat is None or user_lng is None:
+                raise ValidationError("إحداثيات الموقع مطلوبة لتفعيل الطلب عبر GPS.")
+            
+            try:
+                lat1, lon1 = radians(float(user_lat)), radians(float(user_lng))
+                lat2, lon2 = radians(float(school.location_lat)), radians(float(school.location_lng))
+            except (ValueError, TypeError):
+                raise ValidationError("إحداثيات غير صالحة.")
+
+            R = 6371000  # نصف قطر الأرض بالأمتار
             dlat, dlon = lat2 - lat1, lon2 - lon1
             a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
             distance = 2 * asin(sqrt(a)) * R
-            return distance <= (school.location_radius + 5)
+            
+            # إضافة هامش خطأ 5 أمتار لتحسين تجربة المستخدم
+            if distance > (school.location_radius + 5):
+                raise ValidationError(f"أنت بعيد جداً عن المدرسة. المسافة الحالية: {int(distance)} متر.")
+            return True
 
         if method == 'BARCODE':
-            return barcode == school.public_code
+            if barcode != school.public_code:
+                raise ValidationError("رمز الباركود غير صحيح.")
+            return True
 
         if method == 'WIFI':
-            # منطق التحقق من الـ SSID (يُرسل من الموبايل ويقارن بإعدادات مسبقة)
-            return wifi_ssid == "SCHOOL_OFFICIAL_WIFI"
+            if wifi_ssid != "SCHOOL_OFFICIAL_WIFI": # يفضل جلبها من إعدادات المدرسة في قاعدة البيانات
+                raise ValidationError("يجب الاتصال بشبكة الواي فاي الخاصة بالمدرسة.")
+            return True
 
         return False
     
@@ -41,6 +54,17 @@ class AttendanceService:
         # 1. جلب الطالب مع قفل السطر (Locking)
         # ملاحظة: select_for_update() ستنتظر في PostgreSQL وتعمل كـ Guard في SQLite
         student = Student.objects.select_for_update().get(id=student_id)
+
+        # --- الإضافة الجديدة: التحقق من ملكية الطالب ---
+        is_his_child = StudentParent.objects.filter(
+            student=student, 
+            parent=user.parent
+        ).exists()
+        
+        if not is_his_child:
+            raise ValidationError("عذراً، هذا الطالب ليس مسجلاً ضمن أبنائك.")
+        # ----------------------------------------------
+
         school = student.school
 
         # 2. التحقق الجغرافي بناءً على إعدادات المدرسة
@@ -71,36 +95,42 @@ class AttendanceService:
     @staticmethod
     @transaction.atomic
     def update_student_and_request_status(student, new_status, teacher_user):
-        """
-        تحديث حالة الطالب ومزامنة طلب الاستلام المرتبط به تلقائياً.
-        """
-        student_locked = Student.objects.select_for_update().get(id=student.id)
-        current_status = student_locked.status
-
-        # 1. التحقق من صلاحية الانتقال (State Validation)
-        StateService.validate_transition(current_status, new_status)
-
-        # 2. تحديث حالة الطالب
-        student_locked.change_status(new_status)
-        student_locked.save(update_fields=['status'])
-
-        if new_status == 'DELIVERED':
-            PickupRequest.objects.filter(
-                student=student_locked, 
-                status__in=['CREATED', 'ACCEPTED']
-            ).update(status='COMPLETED', processed_by=teacher_user, completed_at=timezone.now())
-            
-        elif new_status == 'PRESENT' and current_status == 'REQUESTED':
-            # بدلاً من .delete()، نقوم بالتحديث لـ CANCELLED للحفاظ على السجل للتقارير
-            PickupRequest.objects.filter(
-                student=student_locked, 
-                status__in=['CREATED', 'ACCEPTED']
-            ).update(status='CANCELLED')
-
-        # 4. البث عبر الـ WebSocket
-        WSService.broadcast_student_update(student_locked)
+        # ببساطة استدعِ الدالة الموحدة
+        return StateService.transition_student_status(student, new_status)
         
-        return student_locked
+#     @staticmethod
+#     @transaction.atomic
+#     def update_student_and_request_status(student, new_status, teacher_user):
+#         """
+#         تحديث حالة الطالب ومزامنة طلب الاستلام المرتبط به تلقائياً.
+#         """
+#         student_locked = Student.objects.select_for_update().get(id=student.id)
+#         current_status = student_locked.status
+
+#         # 1. التحقق من صلاحية الانتقال (State Validation)
+#         StateService.validate_transition(current_status, new_status)
+
+#         # 2. تحديث حالة الطالب
+#         student_locked.change_status(new_status)
+#         student_locked.save(update_fields=['status'])
+
+#         if new_status == 'DELIVERED':
+#             PickupRequest.objects.filter(
+#                 student=student_locked, 
+#                 status__in=['CREATED', 'ACCEPTED']
+#             ).update(status='COMPLETED',  completed_at=timezone.now())
+            
+#         elif new_status == 'PRESENT' and current_status == 'REQUESTED':
+#             # بدلاً من .delete()، نقوم بالتحديث لـ CANCELLED للحفاظ على السجل للتقارير
+#             PickupRequest.objects.filter(
+#                 student=student_locked, 
+#                 status__in=['CREATED', 'ACCEPTED']
+#             ).update(status='CANCELLED')
+
+#         # 4. البث عبر الـ WebSocket
+#         WSService.broadcast_student_update(student_locked)
+        
+#         return student_locked
     
 
 
@@ -109,29 +139,93 @@ class StateService:
     def validate_transition(current, target):
         if target not in StudentStatus.TRANSITIONS.get(current, []):
             raise ValidationError(f"انتقال غير مسموح من {current} إلى {target}")
+        
 
     @staticmethod
     @transaction.atomic
     def transition_student_status(student, new_status):
-        # 1. تحديث حالة الطالب أولاً
-        student.change_status(new_status)
-        student.save(update_fields=['status'])
+        """
+        الدالة المركزية لتحديث حالة الطالب ومزامنة الطلبات وإرسال التنبيهات.
+        تم دمج منطق الأمان والحفظ المضمون هنا.
+        """
+        # 1. قفل سطر الطالب في قاعدة البيانات لمنع التضارب (Race Condition)
+        student_locked = Student.objects.select_for_update().get(id=student.id)
+        current_status = student_locked.status
 
-        # 2. مزامنة "طلب الاستلام" (PickupRequest)
-        # إذا أصبح الطالب DELIVERED، نغلق الطلب بـ COMPLETED
-        if new_status == 'DELIVERED':
+        # 2. التحقق من صلاحية الانتقال
+        StateService.validate_transition(current_status, new_status)
+
+        # 3. تحديث حالة الطالب والحفظ فوراً
+        student_locked.change_status(new_status)
+        student_locked.save(update_fields=['status'])
+
+        # 4. مزامنة "طلب الاستلام" (PickupRequest)
+        if new_status == StudentStatus.DELIVERED:
             PickupRequest.objects.filter(
-                student=student,
-                status__in=['CREATED', 'ACCEPTED'] # الحالات النشطة في الموديل عندك
+                student=student_locked,
+                status__in=['CREATED', 'ACCEPTED']
             ).update(
                 status='COMPLETED', 
                 completed_at=timezone.now()
             )
-            logger.info(f"PickupRequest for student {student.id} marked as COMPLETED.")
+            logger.info(f"Student {student_locked.id} DELIVERED - Request COMPLETED.")
             
-        # إذا عاد الطالب PRESENT، نلغي الطلب (يمكنك إضافة حالة CANCELLED للموديل أو حذفه)
-        elif new_status == 'PRESENT':
+        elif new_status == StudentStatus.PRESENT:
+            # تحديث الطلب إلى ملغي بدلاً من الحذف لضمان وجود سجل (Logs)
             PickupRequest.objects.filter(
-                student=student,
+                student=student_locked,
                 status__in=['CREATED', 'ACCEPTED']
-            ).delete() # أو تحويله لـ Cancelled إذا أضفتها للموديل
+            ).update(status='CANCELLED')
+            logger.info(f"Student {student_locked.id} returned to PRESENT - Request CANCELLED.")
+
+        # 5. الجزء الأهم: إرسال التحديث للحظي (WebSocket)
+        # نستخدم on_commit لضمان أن الرسالة لا تخرج إلا بعد نجاح الحفظ في الداتابيز
+        transaction.on_commit(lambda: WSService.broadcast_student_update(student_locked))
+
+        return student_locked
+
+#     @staticmethod
+#     @transaction.atomic
+#     def transition_student_status(student, new_status):
+#         # 1. تحديث حالة الطالب أولاً
+#         student.change_status(new_status)
+#         student.save(update_fields=['status'])
+
+#         # 2. مزامنة "طلب الاستلام" (PickupRequest)
+#         # إذا أصبح الطالب DELIVERED، نغلق الطلب بـ COMPLETED
+#         if new_status == 'DELIVERED':
+#             PickupRequest.objects.filter(
+#                 student=student,
+#                 status__in=['CREATED', 'ACCEPTED'] # الحالات النشطة في الموديل عندك
+#             ).update(
+#                 status='COMPLETED', 
+#                 completed_at=timezone.now()
+#             )
+#             logger.info(f"PickupRequest for student {student.id} marked as COMPLETED.")
+            
+#         # إذا عاد الطالب PRESENT، نلغي الطلب (يمكنك إضافة حالة CANCELLED للموديل أو حذفه)
+#         elif new_status == 'PRESENT':
+#             PickupRequest.objects.filter(
+#                 student=student,
+#                 status__in=['CREATED', 'ACCEPTED']
+#             ).delete() # أو تحويله لـ Cancelled إذا أضفتها للموديل
+
+
+
+
+
+class StudentService:
+    @staticmethod
+    def get_next_student_code(school, school_class):
+        """يولد كود متسلسل آمن باستخدام قفل قاعدة البيانات"""
+        with transaction.atomic():
+            # قفل السطر الخاص بهذا الفصل لمنع أي عملية متزامنة
+            sequence, created = ClassSequence.objects.select_for_update().get_or_create(
+                school=school,
+                school_class=school_class
+            )
+            sequence.last_number += 1
+            sequence.save()
+            
+            # تنسيق الكود: مثال (SCH1-CLS5-0001)
+            return f"SCH{school.id}-CLS{school_class.id}-{str(sequence.last_number).zfill(4)}"

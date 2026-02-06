@@ -13,6 +13,9 @@ from rest_framework.throttling import AnonRateThrottle
 
 
 from rest_framework.pagination import PageNumberPagination
+import logging
+
+logger = logging.getLogger(__name__)
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 20  # عدد الطلاب في الصفحة
@@ -128,7 +131,7 @@ class StudentListView(generics.ListAPIView):
             school__parentschool__parent__user=user, # ضمان أن الأب مسجل في هذه المدرسة
             school__parentschool__is_approved=True,  # وضمان أن تسجيله مقبول
             is_active=True
-        ).distinct()
+        ).select_related('school', 'school_class').distinct()
 
 class CreateRequestView(APIView):
 
@@ -154,12 +157,12 @@ class CreateRequestView(APIView):
                 return Response({"message": "تم إرسال طلب الاستلام بنجاح"}, status=status.HTTP_201_CREATED)
             
             except ValidationError as e:
-                # (5.2) توحيد سلوك الخطأ لرسائل منطق الأعمال
                 return Response({"detail": str(e.detail[0] if isinstance(e.detail, list) else e.detail)}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
-                print(f"DEBUG ERROR: {str(e)}") # هذا السطر سيطبع الخطأ الحقيقي في شاشة السيرفر
-                return Response({"detail": "حدث خطأ غير متوقع", "error_debug": str(e)}, status=500)
-
+                # تسجيل الخطأ للمبرمج فقط وعدم إرسال e للمستخدم
+                logger.error(f"Error creating pickup request for user {request.user.id}: {str(e)}", exc_info=True)
+                return Response({"detail": "فشل إنشاء الطلب بسبب خطأ غير متوقع"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+       
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 #   واجهات الأستاذ
@@ -176,19 +179,19 @@ class ClassDashboardView(APIView):
             return Response({"error": "حساب المعلم غير نشط أو غير موجود"}, status=403)
             
         # نضمن أن الإحصائيات فقط للفصل الموكل لهذا المعلم في مدرسته
-        students = Student.objects.filter(
+        # استعلام واحد مجمع فائق السرعة
+        stats = Student.objects.filter(
             school_class=teacher_profile.school_class,
-            school=teacher_profile.school,
             is_active=True
+        ).aggregate(
+            total=models.Count('id'),
+            present=models.Count('id', filter=models.Q(status='PRESENT')),
+            requested=models.Count('id', filter=models.Q(status='REQUESTED')),
+            at_gate=models.Count('id', filter=models.Q(status='AT_GATE')),
+            delivered=models.Count('id', filter=models.Q(status='DELIVERED'))
         )
         
-        return Response({
-            "total": students.count(),
-            "present": students.filter(status='PRESENT').count(),
-            "requested": students.filter(status='REQUESTED').count(),
-            "at_gate": students.filter(status='AT_GATE').count(),
-            "delivered": students.filter(status='DELIVERED').count(),
-        })
+        return Response(stats)
    
 
 
@@ -213,7 +216,7 @@ class ActiveRequestsView(generics.ListAPIView):
             student__school=teacher_profile.school,
             status__in=['CREATED', 'ACCEPTED'],
             student__is_active=True
-        ).order_by('requested_at')
+        ).select_related('student', 'parent__user').order_by('requested_at')
     
 
 
@@ -249,15 +252,13 @@ class StudentActionView(APIView):
             }, status=status.HTTP_200_OK)
 
         except ValidationError as e:
-            # هذا سيعطيك السبب الحقيقي (مثلاً: انتقال غير مسموح)
-            return Response({"detail": e.detail}, status=400)
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # أضف هذا السطر لترى الخطأ في التيرمينال عندك
-            print(f"CRITICAL ERROR: {str(e)}") 
-            return Response({"detail": f"خطأ تقني: {str(e)}"}, status=500)
-        
+            # استخدام logger.exception يسجل الخطأ مع الـ Stack Trace كاملاً في الـ Log
+            logger.exception(f"Critical error updating student {student_id} status by user {request.user.id}")
+            return Response({"detail": "حدث خطأ تقني داخلي، يرجى المحاولة لاحقاً"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        
+
 class UnifiedStudentActionView(APIView):
     permission_classes = [IsAuthenticatedAndActive, IsTeacher]
 

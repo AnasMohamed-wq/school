@@ -3,8 +3,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -101,3 +102,19 @@ class AccessService:
             ).exists()
             
         return False
+    
+
+
+class IdentityService:
+    @staticmethod
+    def generate_unique_public_code(model_class, field_name, length=8):
+        """توليد كود فريد مع محاولة إعادة التشغيل في حال التصادم"""
+        for attempt in range(5):  # 5 محاولات كحد أقصى
+            code = secrets.token_urlsafe(length)[:length].upper()
+            try:
+                with transaction.atomic():
+                    if not model_class.objects.filter(**{field_name: code}).exists():
+                        return code
+            except IntegrityError:
+                continue 
+        raise Exception("فشل توليد كود فريد بعد عدة محاولات - خطر تصادم عالي")
