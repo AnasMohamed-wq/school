@@ -7,9 +7,12 @@ from faker import Faker
 from django.db import transaction
 
 
+
 # 1. إعداد بيئة Django (تأكد من تغيير 'myproject' لاسم مجلد مشروعك)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings') 
 django.setup()
+from django.conf import settings
+settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
 # 2. استيراد الموديلات بعد عمل django.setup()
 from attendance.models import (
@@ -164,7 +167,7 @@ def print_websocket_links():
         # بناء الرابط بناءً على المسار الذي وضعناه في routing.py
         # ws://127.0.0.1:8000/ws/pickup/screen/ID_المدرسة/ID_الفصل/?token=TOKEN
         link = (
-            f"ws://127.0.0.1:8000/ws/pickup/screen/"
+            f"wss://used-alex-techcodesdn-bdb25f1f.koyeb.app/ws/pickup/screen/"
             f"{screen.school.id}/{screen.school_class.id}/"
             f"?token={screen.screen_token}"
         )
