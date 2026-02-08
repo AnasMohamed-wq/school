@@ -13,11 +13,8 @@ User = get_user_model()
 def get_user(user_id):
     try:
         return User.objects.get(id=user_id)
-    except User.DoesNotExist:
+    except:
         return AnonymousUser()
-
-
-
 # class JWTAuthMiddleware:
 #     def __init__(self, app):
 #         self.app = app
@@ -61,39 +58,31 @@ class JWTAuthMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        headers = dict(scope['headers'])
+        headers = dict(scope.get('headers', []))
         query_params = parse_qs(scope.get("query_string", b"").decode())
         
-        # 1. حالة الشاشة الذكية (React): نترك التوكن في الـ Query String
-        # هنا لا نتدخل في الـ User، لأن الكومسيومر سيتحقق من التوكن يدوياً في قاعدة البيانات
-        token_from_query = query_params.get('token', [None])[0]
-
-        # 2. حالة المعلم (Flutter/Mobile): نبحث عن JWT
-        jwt_token = None
-        
-        # أ- البحث في الـ Headers (Flutter)
+        # جلب التوكن من الهيدر أو الرابط
+        token = None
         if b'authorization' in headers:
             try:
                 auth_header = headers[b'authorization'].decode().split()
                 if len(auth_header) == 2 and auth_header[0].lower() == 'bearer':
-                    jwt_token = auth_header[1]
+                    token = auth_header[1]
             except: pass
+        
+        if not token:
+            token = query_params.get('token', [None])[0]
 
-        # ب- البحث في Sub-Protocol (حل بديل للمتصفحات لو احتاج المعلم الدخول من ويب)
-        if not jwt_token and b'sec-websocket-protocol' in headers:
+        # محاولة التحقق إذا كان JWT (للمعلم)
+        scope['user'] = AnonymousUser()
+        if token:
             try:
-                jwt_token = headers[b'sec-websocket-protocol'].decode().split(',')[0].strip()
-            except: pass
-
-        # تنفيذ المصادقة للمعلم فقط إذا وجدنا JWT
-        if jwt_token:
-            try:
-                access_token = AccessToken(jwt_token)
+                # إذا كان توكن JWT صالح، نربط المستخدم
+                access_token = AccessToken(token)
                 scope['user'] = await get_user(access_token['user_id'])
             except Exception:
-                scope['user'] = AnonymousUser()
-        else:
-            # إذا لم يوجد JWT، قد يكون مستخدم Anonymous أو شاشة ذكية (سيتم التعامل معها في الكونسومر)
-            scope['user'] = AnonymousUser()
+                # إذا فشل (مثل توكن الشاشة)، نتركه Anonymous 
+                # والـ Consumer الخاص بالشاشة سيتولى التحقق من قاعدة البيانات
+                pass
 
         return await self.app(scope, receive, send)

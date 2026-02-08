@@ -46,13 +46,10 @@ allowed_origins = getattr(settings, "CHANNELS_ALLOWED_ORIGINS", [])
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
-    "websocket": AllowedHostsOriginValidator( # الطبقة الأولى: هل الطلب موجه لموقعي؟
-        OriginValidator( # الطبقة الثانية: هل المصدر موثوق؟
-            JWTAuthMiddleware( # الطبقة الثالثة: هل المستخدم مسجل دخول؟
-                URLRouter(attendance.routing.websocket_urlpatterns)
-            ),
-            allowed_origins
+    "websocket": AllowedHostsOriginValidator(
+        # تم الاكتفاء بـ AllowedHosts لضمان قبول الاتصال من النطاق المعتمد في Koyeb
+        JWTAuthMiddleware(
+            URLRouter(attendance.routing.websocket_urlpatterns)
         )
     ),
 })
-
