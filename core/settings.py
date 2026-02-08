@@ -112,6 +112,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
+# مهم جداً مع Koyeb + Cloudflare
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.koyeb.app',
+]
+
+
+
 ROOT_URLCONF = 'core.urls'
 
 TEMPLATES = [

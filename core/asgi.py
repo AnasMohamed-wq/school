@@ -30,7 +30,7 @@
 import os
 import django
 from django.core.asgi import get_asgi_application
-from channels.security.websocket import OriginValidator
+from channels.security.websocket import OriginValidator ,AllowedHostsOriginValidator
 from django.conf import settings
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
@@ -54,10 +54,12 @@ else:
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
-    "websocket": OriginValidator(
+    "websocket": AllowedHostsOriginValidator(
         JWTAuthMiddleware(
             URLRouter(attendance.routing.websocket_urlpatterns)
         ),
         allowed_origins
     ),
 })
+
+

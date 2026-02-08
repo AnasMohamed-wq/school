@@ -32,7 +32,7 @@ class JWTAuthMiddleware:
         if token:
             try:
                 access_token = AccessToken(token)
-                user_id = access_token['user_id']
+                user_id = access_token.get("user_id")
                 if user_id:
                     scope['user'] = await get_user(user_id)
             except Exception as e:

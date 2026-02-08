@@ -118,7 +118,7 @@ class TeacherConsumer(AsyncWebsocketConsumer):
         self.user = self.scope.get("user")
 
         # 1. قبول الاتصال المبدئي لإرسال رسائل JSON عند وجود خلل
-        await self.accept()
+        #await self.accept()
 
         # 2. التحقق من الهوية والصلاحيات
         if not self.user or not self.user.is_authenticated:
@@ -130,6 +130,8 @@ class TeacherConsumer(AsyncWebsocketConsumer):
             await self.send_error("PERMISSION_DENIED", "هذه القناة مخصصة للمعلمين فقط")
             await self.close(code=4003)
             return
+        
+        await self.accept()
 
         try:
             # 3. جلب بيانات المعلم (المدرسة والفصل)
