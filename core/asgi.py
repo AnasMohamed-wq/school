@@ -48,6 +48,7 @@ if settings.DEBUG:
         "http://127.0.0.1:5173",
         "http://localhost:8000",   # إضافة نطاق السيرفر نفسه
         "http://127.0.0.1:8000"
+        "https://used-alex-techcodesdn-bdb25f1f.koyeb.app"
     ]
 else:
     allowed_origins = settings.CHANNELS_CORS_ALLOWED_ORIGINS
