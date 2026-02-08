@@ -47,20 +47,21 @@ if settings.DEBUG:
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
         "http://localhost:8000",   # إضافة نطاق السيرفر نفسه
-        "http://127.0.0.1:8000"
-        "https://used-alex-techcodesdn-bdb25f1f.koyeb.app"
+        "http://127.0.0.1:8000",
+        "https://used-alex-techcodesdn-bdb25f1f.koyeb.app",
     ]
 else:
     allowed_origins = settings.CHANNELS_CORS_ALLOWED_ORIGINS
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
-    "websocket": AllowedHostsOriginValidator(
-        JWTAuthMiddleware(
-            URLRouter(attendance.routing.websocket_urlpatterns)
-        ),
-        allowed_origins
+    "websocket": AllowedHostsOriginValidator( # الطبقة الأولى: هل الطلب موجه لموقعي؟
+        OriginValidator( # الطبقة الثانية: هل المصدر موثوق؟
+            JWTAuthMiddleware( # الطبقة الثالثة: هل المستخدم مسجل دخول؟
+                URLRouter(attendance.routing.websocket_urlpatterns)
+            ),
+            allowed_origins
+        )
     ),
 })
-
 

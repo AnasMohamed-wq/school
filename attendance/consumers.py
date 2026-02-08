@@ -14,20 +14,17 @@ class SmartScreenConsumer(AsyncWebsocketConsumer):
         query_params = parse_qs(query_string)
         token = query_params.get("token", [None])[0]
 
-     
-        school_id = query_params.get("school_id", [None])[0]
-        class_id = query_params.get("class_id", [None])[0]
-
+    
         # قبول الاتصال أولاً ليتمكن السيرفر من إرسال رسائل JSON بالخطأ قبل الإغلاق
         await self.accept()
 
-        if not all([token, school_id, class_id]):
-            await self.send_error("MISSING_PARAMS", "التوكن، معرف المدرسة، ومعرف الفصل جميعها مطلوبة")
+        if not token:
+            await self.send_error("MISSING_PARAMS", "التوكن  مطلوة")
             await self.close(code=4003)
             return
 
         # 2. التحقق من التوكن وجلب بيانات الشاشة
-        screen = await self.verify_screen(token , school_id, class_id)
+        screen = await self.verify_screen(token )
 
         if not screen:
             await self.send_error("INVALID_TOKEN", "توكن الشاشة غير صالح أو غير نشط")
@@ -63,21 +60,20 @@ class SmartScreenConsumer(AsyncWebsocketConsumer):
             logger.info(f"SmartScreen WebSocket closed normally. Code: {close_code}")
 
     @database_sync_to_async
-    def verify_screen(self, token, school_id, class_id):
+    def verify_screen(self, token):
         try:
-            screen = SmartScreen.objects.select_related("school_class").get(
+            # استخدام الأسماء الصحيحة كما وردت في ملف الـ models.py الخاص بك
+            screen = SmartScreen.objects.select_related("school", "school_class").get(
                 screen_token=token,
-                school_id=school_id,
-                school_class_id=class_id,
                 is_active=True
             )
             return {
                 "school_id": screen.school_id,
-                "class_id": screen.school_class_id
+                "class_id": screen.school_class_id,
+                "screen_name": screen.screen_name # تم التصحيح من name إلى screen_name
             }
         except SmartScreen.DoesNotExist:
-            return None
-        
+            return None   
     @database_sync_to_async
     def get_initial_students(self):
         # المحور الثالث: حل مشكلة N+1 بجلب الحقول المطلوبة فقط كـ list of dicts
@@ -122,11 +118,13 @@ class TeacherConsumer(AsyncWebsocketConsumer):
 
         # 2. التحقق من الهوية والصلاحيات
         if not self.user or not self.user.is_authenticated:
+            await self.accept()
             await self.send_error("AUTH_FAILED", "يجب تسجيل الدخول للوصول لهذه القناة")
             await self.close(code=4003)
             return
 
         if self.user.role != "TEACHER":
+            await self.accept()
             await self.send_error("PERMISSION_DENIED", "هذه القناة مخصصة للمعلمين فقط")
             await self.close(code=4003)
             return

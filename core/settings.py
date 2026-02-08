@@ -45,12 +45,19 @@ INSTALLED_APPS = [
 
 ]
 
-CHANNELS_CORS_ALLOWED_ORIGINS = [
+
+
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,used-alex-techcodesdn-bdb25f1f.koyeb.app').split(',')
+
+CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "https://used-alex-techcodesdn-bdb25f1f.koyeb.app",
 ]
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+# 3. إعدادات الـ Channels Origins
+CHANNELS_CORS_ALLOWED_ORIGINS = CORS_ALLOWED_ORIGINS # لتوحيد القائمة
+
+
 
 if not DEBUG:
     # لا تسمح بالوصول إلا عبر نطاق المدرسة الرسمي
