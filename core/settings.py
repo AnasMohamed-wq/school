@@ -51,6 +51,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,used-alex-techco
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "https://used-alex-techcodesdn-bdb25f1f.koyeb.app",
 ]
 
