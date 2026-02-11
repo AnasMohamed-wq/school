@@ -35,7 +35,15 @@ class SmartScreenConsumer(AsyncWebsocketConsumer):
         self.school_id = screen["school_id"]
         self.class_id = screen["class_id"]
 
+        await self.send(text_data=json.dumps({
+            "action": "INIT",
+            "school_name": screen["school_name"],
+            "class_name": screen["class_name"],
+            "screen_name": screen["screen_name"],
+                }))
+
         self.group_name = f"school_{self.school_id}_class_{self.class_id}"
+
 
         # 4. الانضمام للمجموعة وإرسال الحالة الأولية
         await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -70,6 +78,8 @@ class SmartScreenConsumer(AsyncWebsocketConsumer):
             return {
                 "school_id": screen.school_id,
                 "class_id": screen.school_class_id,
+                "school_name": screen.school.name,
+                "class_name": screen.school_class.name,
                 "screen_name": screen.screen_name # تم التصحيح من name إلى screen_name
             }
         except SmartScreen.DoesNotExist:
