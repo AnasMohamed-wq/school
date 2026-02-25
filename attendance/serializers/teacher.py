@@ -3,6 +3,7 @@ from ..models import PickupRequest, Student
 
 
 class TeacherPickupRequestSerializer(serializers.ModelSerializer):
+    student_id = serializers.IntegerField(source='student.id', read_only=True)
     student_name = serializers.CharField(source='student.full_name', read_only=True)
     parent_name = serializers.CharField(source='parent.user.full_name', read_only=True)
 
@@ -10,6 +11,7 @@ class TeacherPickupRequestSerializer(serializers.ModelSerializer):
         model = PickupRequest
         fields = [
             'id',
+            'student_id',
             'student_name',
             'parent_name',
             'status',
