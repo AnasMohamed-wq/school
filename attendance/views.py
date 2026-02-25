@@ -156,15 +156,26 @@ class CreateRequestView(APIView):
                 )
                 return Response({"message": "تم إرسال طلب الاستلام بنجاح"}, status=status.HTTP_201_CREATED)
             
+            
             except ValidationError as e:
-                return Response({"detail": str(e.detail[0] if isinstance(e.detail, list) else e.detail)}, status=status.HTTP_400_BAD_REQUEST)
+                # تحسين استخراج الرسالة: إذا كانت قائمة نأخذ أول عنصر، إذا كانت نصاً نأخذها كما هي
+                error_detail = e.detail
+                if isinstance(error_detail, dict):
+                    # في حال كان الخطأ مرتبطاً بحقول معينة
+                    msg = next(iter(error_detail.values()))[0] if error_detail else "خطأ في البيانات"
+                elif isinstance(error_detail, list):
+                    msg = error_detail[0]
+                else:
+                    msg = error_detail
+                
+                return Response({"detail": msg}, status=status.HTTP_400_BAD_REQUEST)
+                
             except Exception as e:
-                # تسجيل الخطأ للمبرمج فقط وعدم إرسال e للمستخدم
                 logger.error(f"Error creating pickup request for user {request.user.id}: {str(e)}", exc_info=True)
-                return Response({"detail": "فشل إنشاء الطلب بسبب خطأ غير متوقع"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"detail": "فشل إنشاء الطلب بسبب خطأ غير متوقع بالخادم"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+#   واجهات الأستاذ
 #   واجهات الأستاذ
 
 class ClassDashboardView(APIView):
