@@ -177,9 +177,9 @@ class UserAdmin(admin.ModelAdmin):
         ]
 
     def has_view_permission(self, request, obj=None):
-    # السماح للمدير بالعرض دائماً إذا كانstaff
-    if request.user.role == 'MANAGER': return True
-    return super().has_view_permission(request, obj)
+        # السماح للمدير بالعرض دائماً إذا كانstaff
+        if request.user.role == 'MANAGER': return True
+        return super().has_view_permission(request, obj)
     
     
     def has_change_permission(self, request, obj=None):
