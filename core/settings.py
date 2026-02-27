@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
 
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,used-alex-techcodesdn-bdb25f1f.koyeb.app').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,used-alex-techcodesdn-bdb25f1f.koyeb.app,https://successive-amandy-tech-code-3beec46e.koyeb.app').split(',')
 
 CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173", 
@@ -70,6 +70,7 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     # إخبار Django أن Nginx هو من يقوم بتشفير الـ SSL
@@ -129,6 +130,7 @@ USE_X_FORWARDED_HOST = True
 
 CSRF_TRUSTED_ORIGINS = [
     'https://*.koyeb.app',
+    'https://successive-amandy-tech-code-3beec46e.koyeb.app',
 ]
 
 
