@@ -63,3 +63,4 @@ django-cors-headers
 whitenoise
 dj-database-url
 python-dotenv
+pdfplumber
