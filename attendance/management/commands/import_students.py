@@ -2,7 +2,6 @@ import os
 import pdfplumber
 from django.core.management.base import BaseCommand
 from django.db import transaction
-# استبدل 'core' باسم تطبيقك
 from attendance.models import User, Parent, School, SchoolClass, Student, StudentParent 
 
 class Command(BaseCommand):
@@ -18,20 +17,22 @@ class Command(BaseCommand):
 
         try:
             school = School.objects.get(id=school_id)
-            # استخراج اسم الفصل من اسم الملف (مثلاً: فصل الانجاز)
             file_name = os.path.basename(file_path)
             class_name = file_name.replace('معلومات ', '').replace('.pdf', '').strip()
+
+            self.stdout.write(self.style.WARNING(f'جاري معالجة الملف: {file_name}'))
 
             with pdfplumber.open(file_path) as pdf:
                 all_rows = []
                 for page in pdf.pages:
                     table = page.extract_table()
                     if table:
-                        # نتجاوز الهيدر (الاسم، رقم الام، رقم الاب)
-                        all_rows.extend(table[1:]) 
+                        # نتجاوز الهيدر إذا كان موجوداً
+                        for row in table:
+                            if row and "الاسم" not in str(row[0]):
+                                all_rows.append(row)
 
             with transaction.atomic():
-                # 1. تجهيز الفصل
                 school_class, _ = SchoolClass.objects.get_or_create(
                     school=school,
                     name=class_name,
@@ -40,30 +41,38 @@ class Command(BaseCommand):
 
                 count = 0
                 for row in all_rows:
-                    # بناءً على ملفك، الجدول مقسم لـ 6 أعمدة (طالبين في كل سطر)
-                    # سنعالج كل 3 أعمدة كمجموعة (اسم، هاتف_أم، هاتف_أب)
-                    for i in range(0, len(row), 3):
-                        if i+2 >= len(row): break
+                    # تنظيف الصف من القيم الفارغة
+                    row = [str(item).strip() if item else "" for item in row]
+                    
+                    # ملفك يحتوي على 6 أعمدة (3 للطالب الأول و 3 للطالب الثاني)
+                    # سنقوم بتقسيم الصف إلى مجموعتين
+                    groups = [row[0:3], row[3:6]]
+                    
+                    for group in groups:
+                        if len(group) < 3: continue
                         
-                        s_name = str(row[i]).strip() if row[i] else None
-                        m_phone = str(row[i+1]).strip() if row[i+1] else None
-                        f_phone = str(row[i+2]).strip() if row[i+2] else None
+                        student_name = group[0]
+                        mother_phone = group[1]
+                        father_phone = group[2]
 
-                        if not s_name or s_name == "الاسم": continue
+                        # التحقق من وجود اسم طالب فعلي (تجاهل الخلايا الفارغة)
+                        if not student_name or student_name in ["None", "", "nan"]:
+                            continue
 
-                        # 2. إنشاء الطالب
+                        # إنشاء الطالب
                         student = Student.objects.create(
                             school=school,
                             school_class=school_class,
-                            full_name=s_name
+                            full_name=student_name
                         )
 
-                        # 3. معالجة الهواتف (الأم والأب)
-                        for phone in [m_phone, f_phone]:
-                            if phone and len(phone) > 5: # التحقق من صحة الرقم
-                                clean_phone = phone.replace('\n', '').strip()
+                        # معالجة الهواتف
+                        phones = [mother_phone, father_phone]
+                        for ph in phones:
+                            if ph and len(ph) >= 9: # التحقق من طول رقم الهاتف
+                                clean_phone = ph.replace('\n', '').split('.')[0].strip()
                                 
-                                # إنشاء مستخدم (رقم الهاتف هو الاسم)
+                                # إنشاء مستخدم ولي الأمر
                                 user, created = User.objects.get_or_create(
                                     phone=clean_phone,
                                     defaults={
@@ -72,7 +81,7 @@ class Command(BaseCommand):
                                     }
                                 )
                                 if created:
-                                    user.set_password('123456') # كلمة مرور افتراضية
+                                    user.set_password('123456')
                                     user.save()
 
                                 parent_profile, _ = Parent.objects.get_or_create(user=user)
@@ -80,7 +89,7 @@ class Command(BaseCommand):
                         
                         count += 1
 
-            self.stdout.write(self.style.SUCCESS(f'تم بنجاح استيراد {count} طالب لفصل {class_name}'))
+            self.stdout.write(self.style.SUCCESS(f'تمت العملية! تم استيراد {count} طالب بنجاح.'))
 
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'حدث خطأ: {str(e)}'))
+            self.stdout.write(self.style.ERROR(f'خطأ: {str(e)}'))
