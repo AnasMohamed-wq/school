@@ -1,95 +1,103 @@
-import os
-import pdfplumber
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from attendance.models import User, Parent, School, SchoolClass, Student, StudentParent 
 
 class Command(BaseCommand):
-    help = 'استيراد بيانات الطلاب من ملف PDF'
-
-    def add_arguments(self, parser):
-        parser.add_argument('file_path', type=str, help='مسار ملف الـ PDF')
-        parser.add_argument('school_id', type=int, help='ID المدرسة')
+    help = 'استيراد بيانات طلاب فصل الإنجاز مباشرة من الكود'
 
     def handle(self, *args, **options):
-        file_path = options['file_path']
-        school_id = options['school_id']
+        # 1. تحديد بيانات المدرسة والفصل
+        school_id = 1
+        class_name = "فصل الانجاز"
+
+        # 2. قائمة البيانات الكاملة المستخرجة من الملف
+        students_data = [
+            {"name": "ابراهيم معتز ابراهيم التويم", "phones": ["0543282003", "0564948838"]},
+            {"name": "فرح علاء بن منسي الحربي", "phones": ["0582610031", "059596910"]},
+            {"name": "ارين محمد طارق الخوتاني", "phones": ["0555630551", "0555630550"]},
+            {"name": "ليان زياد بن محمد المارديني", "phones": ["0537260066", "0505439683"]},
+            {"name": "أوس عزمي سراج رحيله", "phones": ["0568109783", "0569992278"]},
+            {"name": "ليلى سلطان بهجت الزغيبي", "phones": ["0530162333", "0560026810"]},
+            {"name": "اياد محمد سعود سندي", "phones": ["0550640336", "0531459125"]},
+            {"name": "ليلى هشام خالد الحربي", "phones": ["0560948010", "0500036390"]},
+            {"name": "ايميليا رائد بدر كلجي", "phones": ["0550789885", "0555050212"]},
+            {"name": "محمد مصطفى بدر الحربي", "phones": ["0532980891", "0566122355"]},
+            {"name": "تالا احمد بن جباره الأحمدي", "phones": ["0531421900", "0536763464"]},
+            {"name": "مريم محمد بن عودة الردادي", "phones": ["0553163456", "0533310416"]},
+            {"name": "تالين عبدالله بن حمد المحيميد", "phones": ["0544541525", "0505304323"]},
+            {"name": "معاذ فهد بن محمد الصبحي", "phones": ["0569300057", "0500204683"]},
+            {"name": "تميم أحمد بن علي الغامدي", "phones": ["0504144365", "0555589133"]},
+            {"name": "مودة ماجد بن محمد الحجيلي", "phones": ["0569446416", "0565553133"]},
+            {"name": "جوري ابراهيم بن عبدالله الردادي", "phones": ["0540445663", "0546648834"]},
+            {"name": "ميار فهد بن حامد الصبحي", "phones": ["0548174411", "0540090881"]},
+            {"name": "جوى أحمد بن عواده الاحمدي", "phones": ["0503328211", "0506307338"]},
+            {"name": "نايف ممدوح بن مفلح الرشيدي", "phones": ["0541170068", "0551170068"]},
+            {"name": "حور خالد بن مرزوق العوفي", "phones": ["0561561026", "0561561026"]},
+            {"name": "نبراس عمار بن محمد الجهني", "phones": ["0563450007", "0540055745"]},
+            {"name": "رنا محمد بن مصلح الصاعدي", "phones": ["0534567228", "0553317781"]},
+            {"name": "هيفاء خالد بن دخيل الله المحمدي", "phones": ["0544320448", "0544133446"]},
+            {"name": "ريتاج راضي بن سليم العروي", "phones": ["0564885856", "0562505030"]},
+            {"name": "وسن حميد بن حامد الصاعدي", "phones": ["0553413554", "0540026601"]},
+            {"name": "ريف محمد بن راشد الفريدي", "phones": ["0558113400", "0503327242"]},
+            {"name": "يارا وليد بن غازي الرحيلي", "phones": ["0544577822", "0566412128"]},
+            {"name": "سديم فواز بن لافي الحربي", "phones": ["0546252203", "0555317783"]},
+            {"name": "ياسمين وليد بن سالم الصاعدي", "phones": ["0558172102", "0555301886"]},
+            {"name": "شادن منير بن حميد المحمدي", "phones": ["0545466882", "0544315518"]},
+            {"name": "يزن مشاري بن غازي العوفي", "phones": ["0566363539", "0500122261"]},
+            {"name": "شموخ عيسى بن عوده المحمدي", "phones": ["0544186675", "0544317130"]},
+            {"name": "يوسف مروان بن جميل حكيم", "phones": ["0540026511", "0540026511"]},
+            {"name": "عادل ابراهيم بن عادل سمان", "phones": ["0555325411", "0544422340"]},
+            {"name": "عبدالملك خالد بن حامد الجابري", "phones": ["0508112117", "0553313010"]},
+            {"name": "غلا مشعل بن فريح الحازمي", "phones": ["0544301550", "0503323060"]},
+        ]
 
         try:
             school = School.objects.get(id=school_id)
-            file_name = os.path.basename(file_path)
-            class_name = file_name.replace('معلومات ', '').replace('.pdf', '').strip()
-
-            self.stdout.write(self.style.WARNING(f'جاري معالجة الملف: {file_name}'))
-
-            with pdfplumber.open(file_path) as pdf:
-                all_rows = []
-                for page in pdf.pages:
-                    table = page.extract_table()
-                    if table:
-                        # نتجاوز الهيدر إذا كان موجوداً
-                        for row in table:
-                            if row and "الاسم" not in str(row[0]):
-                                all_rows.append(row)
-
+            
             with transaction.atomic():
+                # إنشاء أو جلب الفصل باسم "فصل الانجاز"
                 school_class, _ = SchoolClass.objects.get_or_create(
                     school=school,
                     name=class_name,
                     defaults={'number': '1'}
                 )
 
+                self.stdout.write(self.style.WARNING(f'جاري استيراد الطلاب إلى: {class_name}'))
+
                 count = 0
-                for row in all_rows:
-                    # تنظيف الصف من القيم الفارغة
-                    row = [str(item).strip() if item else "" for item in row]
+                for data in students_data:
+                    # إنشاء الطالب
+                    student = Student.objects.create(
+                        school=school,
+                        school_class=school_class,
+                        full_name=data["name"]
+                    )
+
+                    # إنشاء أولياء الأمور
+                    for ph in data["phones"]:
+                        if ph and len(ph) >= 9:
+                            # تنظيف رقم الهاتف
+                            clean_phone = ph.strip()
+                            
+                            user, created = User.objects.get_or_create(
+                                phone=clean_phone,
+                                defaults={
+                                    'full_name': f"ولي أمر {data['name']}",
+                                    'role': 'PARENT',
+                                }
+                            )
+                            if created:
+                                user.set_password('123456')
+                                user.save()
+
+                            parent_profile, _ = Parent.objects.get_or_create(user=user)
+                            StudentParent.objects.get_or_create(student=student, parent=parent_profile)
                     
-                    # ملفك يحتوي على 6 أعمدة (3 للطالب الأول و 3 للطالب الثاني)
-                    # سنقوم بتقسيم الصف إلى مجموعتين
-                    groups = [row[0:3], row[3:6]]
-                    
-                    for group in groups:
-                        if len(group) < 3: continue
-                        
-                        student_name = group[0]
-                        mother_phone = group[1]
-                        father_phone = group[2]
+                    count += 1
 
-                        # التحقق من وجود اسم طالب فعلي (تجاهل الخلايا الفارغة)
-                        if not student_name or student_name in ["None", "", "nan"]:
-                            continue
+            self.stdout.write(self.style.SUCCESS(f'تم بنجاح! تم إنشاء الفصل واستيراد {count} طالب.'))
 
-                        # إنشاء الطالب
-                        student = Student.objects.create(
-                            school=school,
-                            school_class=school_class,
-                            full_name=student_name
-                        )
-
-                        # معالجة الهواتف
-                        phones = [mother_phone, father_phone]
-                        for ph in phones:
-                            if ph and len(ph) >= 9: # التحقق من طول رقم الهاتف
-                                clean_phone = ph.replace('\n', '').split('.')[0].strip()
-                                
-                                # إنشاء مستخدم ولي الأمر
-                                user, created = User.objects.get_or_create(
-                                    phone=clean_phone,
-                                    defaults={
-                                        'full_name': f"ولي أمر {clean_phone}",
-                                        'role': 'PARENT',
-                                    }
-                                )
-                                if created:
-                                    user.set_password('123456')
-                                    user.save()
-
-                                parent_profile, _ = Parent.objects.get_or_create(user=user)
-                                StudentParent.objects.get_or_create(student=student, parent=parent_profile)
-                        
-                        count += 1
-
-            self.stdout.write(self.style.SUCCESS(f'تمت العملية! تم استيراد {count} طالب بنجاح.'))
-
+        except School.DoesNotExist:
+            self.stdout.write(self.style.ERROR(f'المدرسة رقم {school_id} غير موجودة.'))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'خطأ: {str(e)}'))
+            self.stdout.write(self.style.ERROR(f'حدث خطأ: {str(e)}'))
