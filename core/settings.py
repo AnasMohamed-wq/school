@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
 
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost).split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173", 
