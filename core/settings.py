@@ -47,14 +47,14 @@ INSTALLED_APPS = [
 
 
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,used-alex-techcodesdn-bdb25f1f.koyeb.app,https://successive-amandy-tech-code-3beec46e.koyeb.app').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost).split(',')
 
 CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
         "http://localhost:8000",   # إضافة نطاق السيرفر نفسه
         "http://127.0.0.1:8000",
-        "https://used-alex-techcodesdn-bdb25f1f.koyeb.app",
+        "http://178.238.233.218",
 ]
 
 # 3. إعدادات الـ Channels Origins
