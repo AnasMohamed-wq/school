@@ -3,6 +3,8 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from urllib.parse import parse_qs
 from .models import SmartScreen, Student
+
+from .serializers.screen import SmartScreenStudentSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -83,32 +85,52 @@ class SmartScreenConsumer(AsyncWebsocketConsumer):
                 "screen_name": screen.screen_name # تم التصحيح من name إلى screen_name
             }
         except SmartScreen.DoesNotExist:
-            return None   
+            return None  
+         
     @database_sync_to_async
-    def get_initial_students(self):
-        # المحور الثالث: حل مشكلة N+1 بجلب الحقول المطلوبة فقط كـ list of dicts
-        return list(Student.objects.filter(
+    def get_initial_students_data(self):
+        # تم إضافة الـ prefetch لضمان سرعة الـ Serializer في جلب الـ parent_name
+        queryset = Student.objects.filter(
             school_id=self.school_id,
             school_class_id=self.class_id,
-            status__in=['PRESENT', 'REQUESTED', 'AT_GATE'], # استثناء DELIVERED
+            status__in=['PRESENT', 'REQUESTED', 'AT_GATE'],
             is_active=True
-        ).values('id', 'full_name', 'status'))
+        ).prefetch_related('pickuprequest_set')
+        
+        return SmartScreenStudentSerializer(queryset, many=True).data
+    
 
     async def send_initial_students(self):
-        students = await self.get_initial_students()
+        students_data = await self.get_initial_students_data()
         await self.send(text_data=json.dumps({
             "action": "INITIAL_SYNC",
-            "students": students
+            "students": students_data  # الآن البيانات تحتوي على parent_name و request_time
         }))
 
+    
     async def pickup_update(self, event):
+        logger.debug(f"pickup_update received in consumer: {event}")
+        
         """يستدعى عند وجود تحديث من الـ Service عبر Redis"""
-        await self.send(text_data=json.dumps({
-            "action": "UPDATE_STUDENT_STATUS",
-            "student_id": event["student_id"],
-            "full_name": event["full_name"],
-            "status": event["status"],
-        }))
+        # جلب بيانات الطالب كاملة عبر الـ Serializer لضمان وصول اسم ولي الأمر للواجهة
+        student_data = await self.get_single_student_data(event["student_id"])
+        
+        if student_data:
+            await self.send(text_data=json.dumps({
+                "action": "UPDATE_STUDENT_STATUS",
+                **student_data
+            }))
+
+    @database_sync_to_async
+    def get_single_student_data(self, student_id):
+        try:
+            # استخدام prefetch هنا أيضاً لتسريع جلب الـ request_time
+            student = Student.objects.prefetch_related('pickuprequest_set').get(id=student_id)
+            return SmartScreenStudentSerializer(student).data
+        except Student.DoesNotExist:
+            return None
+
+
 
     async def send_error(self, code, message):
         """دالة مساعدة لإرسال أخطاء واضحة قبل إغلاق القناة"""

@@ -1,0 +1,36 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تسجيل الدخول — الكيان</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <h1>تسجيل الدخول</h1>
+    
+    {# إظهار رسائل الخطأ القادمة من الـ View #}
+    {% if error %}
+      <div class="alert error" style="color: red; background: #fee; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'ui_login' %}">
+      {% csrf_token %}
+      <label>رقم الهاتف
+        <input name="phone" type="text" value="{{ phone|default:'' }}" required autocomplete="tel" />
+      </label>
+      <label>كلمة المرور
+        <input name="password" type="password" required autocomplete="current-password" />
+      </label>
+      <button class="btn primary" type="submit">دخول</button>
+    </form>
+  </div>
+
+  {# تأكد أن ملف main.js لا يحتوي على كود يمنع الـ Submit الافتراضي #}
+  <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

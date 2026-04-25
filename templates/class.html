@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>إدارة البنية التحتية - كيان</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0061a5",
+                        "primary-container": "#4da6ff",
+                        "on-primary": "#ffffff",
+                        "surface": "#f7f9fc",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#404752",
+                        "outline-variant": "#c0c7d4",
+                        "error": "#ba1a1a",
+                        "tertiary": "#835400",
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+        .headline-font { font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+
+    <aside class="flex flex-col h-full py-6 px-4 bg-slate-100 h-screen w-64 fixed right-0 top-0 z-40 border-l border-slate-200">
+        <div class="mb-10 px-4">
+            <h1 class="text-xl font-black text-blue-700 headline-font">Kayan Admin</h1>
+            <p class="text-xs text-on-surface-variant/70">نظام إدارة المدرسة</p>
+        </div>
+        <nav class="flex-1 space-y-2">
+            <a class="flex items-center gap-3 px-4 py-3 bg-blue-100 text-blue-700 border-r-4 border-blue-600 rounded-l-lg" href="#">
+                <span class="material-symbols-outlined">door_open</span>
+                <span class="font-bold">الفصول والشاشات</span>
+            </a>
+        </nav>
+    </aside>
+
+    <main class="mr-64 min-h-screen flex flex-col">
+        <header class="flex justify-between items-center w-full px-8 py-4 bg-white/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
+            <div class="flex items-center gap-8">
+                <span class="text-2xl font-bold tracking-tight text-slate-900">البنية التحتية</span>
+                <div class="relative">
+                    <input class="bg-slate-100 border-none rounded-xl pr-10 pl-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary" placeholder="بحث سريع..." type="text" id="globalSearch"/>
+                    <span class="material-symbols-outlined absolute right-3 top-2 text-slate-400">search</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-700">{{ request.user.full_name }}</span>
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-primary font-bold text-xs">مدير</div>
+            </div>
+        </header>
+
+        <div class="p-8 max-w-7xl mx-auto w-full">
+            <section class="mb-12">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h2 class="text-2xl font-black headline-font">إدارة الفصول</h2>
+                        <form method="GET" class="mt-2 relative group">
+                            <input name="search_class" value="{{ search_class }}" class="bg-slate-100 border-none rounded-xl pr-10 pl-4 py-1.5 text-xs w-48 focus:ring-2 focus:ring-primary" placeholder="بحث باسم أو رقم الفصل..."/>
+                            <span class="material-symbols-outlined absolute right-3 top-1.5 text-slate-400 text-sm">search</span>
+                        </form>
+                    </div>
+                    <button onclick="openModal('classModal')" class="bg-primary text-on-primary px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md hover:bg-blue-700 transition-all">
+                        <span class="material-symbols-outlined">add</span>
+                        <span>إضافة فصل</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {% for class in classes %}
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-primary">
+                                <span class="material-symbols-outlined text-3xl">meeting_room</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="editClass('{{ class.id }}', '{{ class.name }}', '{{ class.number }}', '{{ class.is_active|yesno:"true,false" }}')" class="p-2 text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">edit</span></button>
+                                <form method="POST" onsubmit="return confirm('هل أنت متأكد من إيقاف نشاط هذا الفصل؟')">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="deactivate_class">
+                                    <input type="hidden" name="class_id" value="{{ class.id }}">
+                                    <button type="submit" class="p-2 text-slate-400 hover:text-error transition-colors"><span class="material-symbols-outlined">block</span></button>
+                                </form>
+                            </div>
+                        </div>
+                        <h3 class="font-bold text-lg mb-1">{{ class.name }}</h3>
+                        <p class="text-on-surface-variant text-xs mb-4 uppercase tracking-widest font-bold">رقم الفصل: {{ class.number }}</p>
+                        <div class="flex items-center justify-between pt-4 border-t border-slate-50">
+                            <span class="px-3 py-1 rounded-full {% if class.is_active %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} text-[10px] font-black uppercase">
+                                {{ class.is_active|yesno:"نشط,متوقف" }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <hr class="border-slate-200 mb-12">
+
+            <section>
+                <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-2xl font-black headline-font">الشاشات الذكية</h2>
+                    <form method="GET" class="mt-2 relative group">
+                        <input name="search_screen" value="{{ search_screen }}" class="bg-slate-100 border-none rounded-xl pr-10 pl-4 py-1.5 text-xs w-48 focus:ring-2 focus:ring-primary" placeholder="بحث باسم الشاشة..."/>
+                        <span class="material-symbols-outlined absolute right-3 top-1.5 text-slate-400 text-sm">search</span>
+                    </form>
+                </div>
+
+                    <button onclick="openModal('screenModal')" class="bg-tertiary text-on-primary px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md hover:opacity-90 transition-all">
+                        <span class="material-symbols-outlined">monitor</span>
+                        <span>إضافة شاشة</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table class="w-full text-right">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100">
+                                <th class="px-6 py-4 text-xs font-black text-slate-500 uppercase">اسم الشاشة</th>
+                                <th class="px-6 py-4 text-xs font-black text-slate-500 uppercase">الفصل المرتبط</th>
+                                <th class="px-6 py-4 text-xs font-black text-slate-500 uppercase">كود الربط (Token)</th>
+                                <th class="px-6 py-4 text-xs font-black text-slate-500 uppercase text-left">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            {% for screen in screens %}
+                            <tr class="hover:bg-slate-50/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-outlined text-slate-400">tv</span>
+                                        <span class="font-bold text-slate-700">{{ screen.screen_name }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold">{{ screen.school_class.name }}</span>
+                                </td>
+                                <td class="px-6 py-4 font-mono text-[10px] text-slate-400">{{ screen.screen_token }}</td>
+                                <td class="px-6 py-4 text-left">
+                                    <div class="flex justify-end gap-2">
+                                        <button onclick="editScreen('{{ screen.id }}', '{{ screen.screen_name }}', '{{ screen.school_class.id }}', '{{ screen.is_active|yesno:"true,false" }}')" class="p-2 bg-slate-100 hover:bg-primary hover:text-white rounded-lg transition-all"><span class="material-symbols-outlined text-sm">edit</span></button>
+                                        <form method="POST" style="display:inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="deactivate_screen">
+                                            <input type="hidden" name="screen_id" value="{{ screen.id }}">
+                                            <button type="submit" class="p-2 bg-slate-100 hover:bg-error hover:text-white rounded-lg transition-all"><span class="material-symbols-outlined text-sm">delete</span></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="classModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="classAction" value="create_class">
+                <input type="hidden" name="class_id" id="classIdInput">
+                
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-black headline-font text-slate-800" id="classModalTitle">إضافة فصل جديد</h3>
+                    <button type="button" onclick="closeModal('classModal')" class="text-slate-400 hover:text-slate-600"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 tracking-widest uppercase">اسم الفصل</label>
+                        <input name="name" id="classNameInput" required class="w-full border-slate-200 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary" placeholder="مثال: فصل أينشتاين"/>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 tracking-widest uppercase">رقم الفصل</label>
+                        <input name="number" id="classNumberInput" required class="w-full border-slate-200 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary" placeholder="مثال: 101"/>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <span class="text-xs font-bold text-slate-600 uppercase">حالة الفصل (نشط/معطل)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="classStatusToggle" class="sr-only peer" onchange="document.getElementById('classActiveInput').value = this.checked">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                        <input type="hidden" name="is_active" id="classActiveInput" value="true">
+                    </div>
+                </div>
+                <div class="p-6 bg-slate-50 flex gap-3">
+                    <button type="button" onclick="closeModal('classModal')" class="flex-1 px-4 py-3 text-slate-500 font-bold hover:bg-slate-200 rounded-xl transition-all">إلغاء</button>
+                    <button type="submit" class="flex-[2] bg-primary text-on-primary font-bold py-3 rounded-xl shadow-lg hover:shadow-primary/20 transition-all">حفظ البيانات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="screenModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="screenAction" value="create_screen">
+                <input type="hidden" name="screen_id" id="screenIdInput">
+                
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-black headline-font text-slate-800" id="screenModalTitle">إعداد شاشة ذكية</h3>
+                    <button type="button" onclick="closeModal('screenModal')" class="text-slate-400 hover:text-slate-600"><span class="material-symbols-outlined">close</span></button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 tracking-widest uppercase">اسم الشاشة</label>
+                        <input name="screen_name" id="screenNameInput" required class="w-full border-slate-200 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary" placeholder="مثال: شاشة الممر الرئيسي"/>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 tracking-widest uppercase">الفصل المستهدف</label>
+                        <select name="target_class_id" id="screenClassSelect" required class="w-full border-slate-200 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary">
+                            <option value="">اختر الفصل...</option>
+                            {% for c in all_classes %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.number }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <span class="text-xs font-bold text-slate-600 uppercase">حالة الفصل (نشط/معطل)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="classStatusToggle" class="sr-only peer" onchange="document.getElementById('classActiveInput').value = this.checked">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                        <input type="hidden" name="is_active" id="classActiveInput" value="true">
+                    </div>
+                <div class="p-6 bg-slate-50 flex gap-3">
+                    <button type="button" onclick="closeModal('screenModal')" class="flex-1 px-4 py-3 text-slate-500 font-bold hover:bg-slate-200 rounded-xl transition-all">إلغاء</button>
+                    <button type="submit" class="flex-[2] bg-tertiary text-on-primary font-bold py-3 rounded-xl shadow-lg transition-all">ربط الشاشة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            // إعادة تصفير الفورم عند الإغلاق
+            if(id === 'classModal') resetClassModal();
+            if(id === 'screenModal') resetScreenModal();
+        }
+
+        function editClass(id, name, number, isActive) {
+            const isTrue = isActive === 'true';
+            document.getElementById('classModalTitle').innerText = 'تعديل بيانات الفصل';
+            document.getElementById('classAction').value = 'update_class';
+            document.getElementById('classIdInput').value = id;
+            document.getElementById('classNameInput').value = name;
+            document.getElementById('classNumberInput').value = number;
+            
+            // تحديث السويتش والحقل المخفي
+            document.getElementById('classStatusToggle').checked = isTrue;
+            document.getElementById('classActiveInput').value = isTrue ? 'true' : 'false';
+            
+            openModal('classModal');
+        }
+
+        function editScreen(id, name, classId, isActive) {
+            const isTrue = isActive === 'true';
+            document.getElementById('screenModalTitle').innerText = 'تعديل بيانات الشاشة';
+            document.getElementById('screenAction').value = 'update_screen';
+            document.getElementById('screenIdInput').value = id;
+            document.getElementById('screenNameInput').value = name;
+            document.getElementById('screenClassSelect').value = classId;
+
+            // تحديث السويتش والحقل المخفي للشاشة
+            const toggle = document.getElementById('screenStatusToggle'); // تأكد من إضافة id للسويتش في مودال الشاشات
+            if(toggle) toggle.checked = isTrue;
+            document.getElementById('screenActiveInput').value = isTrue ? 'true' : 'false';
+
+            openModal('screenModal');
+        }
+        
+
+        function resetClassModal() {
+            document.getElementById('classModalTitle').innerText = 'إضافة فصل جديد';
+            document.getElementById('classAction').value = 'create_class';
+            document.getElementById('classNameInput').value = '';
+            document.getElementById('classNumberInput').value = '';
+        }
+
+       
+
+
+        function resetScreenModal() {
+            document.getElementById('screenModalTitle').innerText = 'إعداد شاشة ذكية';
+            document.getElementById('screenAction').value = 'create_screen';
+            document.getElementById('screenNameInput').value = '';
+            document.getElementById('screenClassSelect').value = '';
+        }
+    </script>
+</body>
+</html>

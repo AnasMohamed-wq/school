@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الكيان | High-Visibility Educational Intelligence</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Tajawal:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-primary": "#bdc2ff",
+                        "surface-dim": "#d9dadb",
+                        "tertiary-container": "#670008",
+                        "surface": "#f8f9fa",
+                        "primary-container": "#1a237e",
+                        "surface-container": "#edeeef",
+                        "secondary-fixed-dim": "#fbbc00",
+                        "surface-container-high": "#e7e8e9",
+                        "on-surface-variant": "#454652",
+                        "secondary-fixed": "#ffdfa0",
+                        "secondary": "#795900",
+                        "on-surface": "#191c1d",
+                        "surface-variant": "#e1e3e4",
+                        "surface-bright": "#f8f9fa",
+                        "secondary-container": "#ffbf00",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffdad6",
+                        "on-primary-container": "#8690ee",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-secondary-fixed": "#261a00",
+                        "on-secondary-container": "#6d5000",
+                        "inverse-surface": "#2e3132",
+                        "tertiary-fixed-dim": "#ffb3ac",
+                        "on-background": "#191c1d",
+                        "on-primary-fixed": "#000767",
+                        "primary-fixed": "#e0e0ff",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f3f4f5",
+                        "surface-tint": "#4c56af",
+                        "on-tertiary-fixed-variant": "#930010",
+                        "on-error-container": "#93000a",
+                        "background": "#f8f9fa",
+                        "on-primary-fixed-variant": "#343d96",
+                        "surface-container-lowest": "#ffffff",
+                        "outline": "#767683",
+                        "tertiary": "#400003",
+                        "outline-variant": "#c6c5d4",
+                        "error": "#ba1a1a",
+                        "primary": "#000666",
+                        "on-tertiary-container": "#ff635b",
+                        "on-secondary-fixed-variant": "#5c4300",
+                        "on-tertiary-fixed": "#410003",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "Tajawal"],
+                        "body": ["Work Sans", "Tajawal"],
+                        "label": ["Work Sans", "Tajawal"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "1.5rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Plus Jakarta Sans', 'Tajawal', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-panel { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); }
+        .at-gate-pulse { animation: soft-pulse 2s infinite ease-in-out; }
+        @keyframes soft-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-primary-container selection:text-white overflow-hidden h-screen flex flex-col">
+<!-- TopNavBar -->
+
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-[#000666] dark:bg-[#000333] shadow-[0_1px_10px_rgba(255,255,255,0.1)]">
+    <div class="flex items-center gap-6">
+        <span class="text-2xl font-black text-white tracking-tight">الكيان</span>
+        
+        <nav class="hidden md:flex items-center gap-8 border-r border-white/20 pr-6 mr-2">
+            <div class="flex flex-col">
+                <span id="school-name-display" class="font-['Plus_Jakarta_Sans','Tajawal'] font-bold text-secondary-fixed text-lg leading-none">جاري التحميل...</span>
+                <span id="screen-name-display" class="text-[10px] text-white/50 uppercase font-black tracking-widest mt-1">Smart Screen System</span>
+            </div>
+        </nav>
+    </div>
+
+    <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2 px-4 py-2 glass-panel rounded-full text-white/90 border border-white/10">
+            <span class="material-symbols-outlined text-sm animate-pulse" style="font-variation-settings: 'FILL' 1;">schedule</span>
+            <span id="live-clock" class="text-xl font-black tracking-tighter">00:00</span>
+        </div>
+
+        <div class="flex items-center gap-4 text-white">
+            <div id="connection-indicator" class="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20">
+                <span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>
+                <span class="text-[10px] font-bold uppercase">Connecting</span>
+            </div>
+            <span class="material-symbols-outlined hover:bg-white/10 p-2 rounded-full cursor-pointer transition-all">wifi</span>
+            <button class="bg-secondary-container text-on-secondary-container px-6 py-2 rounded-full font-bold hover:scale-95 active:scale-90 duration-200 transition-all shadow-lg">
+                School Status
+            </button>
+        </div>
+    </div>
+</header>
+
+
+
+
+<main class="flex-1 mt-20 flex overflow-hidden">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-20 h-[calc(100vh-5rem)] w-64 bg-[#f8f9fa] dark:bg-[#121212] flex flex-col py-4 z-40">
+<div class="px-6 py-4 flex items-center gap-3 mb-6">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold">K</div>
+<div>
+<h2 class="text-xl font-bold text-[#000666] leading-none">الكيان</h2>
+<p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-1">High-Visibility Intel</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 flex-1">
+<a class="flex items-center gap-4 px-4 py-3 bg-[#000666] text-white rounded-xl mx-2 shadow-lg font-semibold hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Overview</span>
+</a>
+
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<section class="flex-1 mr-0 ml-64 p-8 overflow-y-auto bg-surface-container-low">
+
+<!-- Summary Stats -->
+<div class="grid grid-cols-4 gap-6 mb-12">
+    <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-r-4 border-primary">
+        <p class="text-sm font-bold text-outline uppercase tracking-widest mb-2">Total Present</p>
+        <h3 id="stat-present" class="text-5xl font-black text-primary font-headline">0</h3>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-r-4 border-secondary">
+        <p class="text-sm font-bold text-outline uppercase tracking-widest mb-2">Requested</p>
+        <h3 id="stat-requested" class="text-5xl font-black text-secondary font-headline">0</h3>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-r-4 border-tertiary-container">
+        <p class="text-sm font-bold text-outline uppercase tracking-widest mb-2">At Gate</p>
+        <h3 id="stat-at-gate" class="text-5xl font-black text-tertiary-container font-headline">0</h3>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-r-4 border-on-primary-container">
+        <p class="text-sm font-bold text-outline uppercase tracking-widest mb-2">Delivered</p>
+        <h3 id="stat-delivered" class="text-5xl font-black text-on-primary-container font-headline">0</h3>
+    </div>
+</div>
+
+<!-- Active High-Visibility Section -->
+
+
+<div class="bg-[#191c1d] rounded-xl p-10 mb-12 shadow-2xl">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-white text-3xl font-black mb-2">Active Pickups</h2>
+<p class="text-white/60 font-semibold">Priority status for students currently at the gate or requested by parents.</p>
+</div>
+<div class="bg-white/10 px-4 py-2 rounded-lg border border-white/20">
+<span class="text-secondary-fixed font-bold">Auto-Refresh Active</span>
+</div>
+</div>
+<div id="students-container" class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+
+</div>
+</div>
+
+
+<!-- Queue Table Section -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden mb-8">
+<div class="px-8 py-6 bg-surface-container flex justify-between items-center border-b border-outline-variant/10">
+<h2 class="text-2xl font-black text-primary">Student Tracking Queue</h2>
+<div class="flex gap-4">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-outline-variant text-sm font-bold">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                            Filter Class
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-outline-variant text-sm font-bold">
+<span class="material-symbols-outlined text-sm">download</span>
+                            Export Log
+                        </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right border-collapse">
+<thead>
+<tr class="bg-primary text-white text-sm uppercase tracking-widest">
+<th class="px-8 py-4 font-black">Student Name / الاسم</th>
+<th class="px-8 py-4 font-black">Grade / الصف</th>
+<th class="px-8 py-4 font-black">Guardian / ولي الأمر</th>
+<th class="px-8 py-4 font-black">Status / الحالة</th>
+<th class="px-8 py-4 font-black">Timestamp / الوقت</th>
+</tr>
+</thead>
+<tbody id="queue-table-body" class="text-on-surface font-semibold">
+
+
+</tbody>
+</table>
+</div>
+</div>
+
+</section>
+</main>
+<!-- Footer Stats Overlay (Fixed Bottom) -->
+<footer class="h-12 bg-primary text-white flex items-center justify-between px-8 z-50 text-xs font-bold uppercase tracking-tighter">
+<div class="flex gap-8">
+<span class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                SYSTEM STATUS: OPERATIONAL
+            </span>
+<span>GATE CONNECTIONS: 4/4 ACTIVE</span>
+</div>
+<div>
+            AL-KAYAN INTELLIGENCE SYSTEM © 2024
+        </div>
+</footer>
+
+
+
+<script>
+
+    let currentClassName = "---"; // متغير عالمي لتخزين اسم الفصل
+    // 1. استخراج التوكن من رابط الصفحة (مثال: ?token=xyz)
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (!token) {
+        console.error("Missing Screen Token!");
+        document.body.innerHTML += '<div class="fixed inset-0 bg-red-600 text-white flex items-center justify-center z-[100] text-2xl font-bold">خطأ: توكن الشاشة مفقود!</div>';
+    }
+
+    // 2. إعداد الاتصال بالـ WebSocket
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const socket = new WebSocket(`${wsScheme}://${window.location.host}/ws/pickup/screen/?token=${token}`);
+
+    const container = document.getElementById('students-container');
+
+    // 3. دالة إنشاء بطاقة الطالب (نفس تصميم Tailwind الخاص بك)
+    function createStudentCard(student) {
+        const isAtGate = student.status === 'AT_GATE';
+        const statusBg = isAtGate ? 'bg-tertiary-container' : 'bg-secondary-container';
+        const statusText = isAtGate ? 'text-on-tertiary-container' : 'text-on-secondary-container';
+        const borderBg = isAtGate ? 'bg-tertiary-container' : 'bg-secondary-container';
+        const pulseClass = isAtGate ? 'at-gate-pulse shadow-[0_12px_40px_rgba(0,0,0,0.1)]' : 'shadow-[0_4px_20px_rgba(0,0,0,0.05)]';
+        const labelColor = isAtGate ? 'text-tertiary-container' : 'text-secondary';
+
+        const parentName = student.parent_name || "Waiting...";
+        const displayStatus = student.status.replace('_', ' ');
+        
+        // تنسيق وقت الطلب إذا وجد
+        const requestTime = student.request_time ? ` | ${student.request_time}` : "";
+
+        return `
+            <div id="student-${student.id}" data-status="${student.status}" 
+                class="student-card-item ${pulseClass} bg-surface-container-lowest rounded-xl p-8 flex justify-between items-center relative overflow-hidden transition-all duration-500">
+                
+                <div class="absolute right-0 top-0 bottom-0 w-3 ${borderBg}"></div>
+                
+                <div class="flex flex-col text-right">
+                    <span class="${labelColor} font-bold text-sm uppercase tracking-tighter mb-1">
+                        ${currentClassName} | ${parentName}${requestTime}
+                    </span>
+                    <h3 class="text-4xl md:text-5xl font-black text-on-surface leading-tight font-headline">
+                        ${student.full_name}
+                    </h3>
+                    <p class="text-lg text-outline font-semibold mt-2 uppercase tracking-widest">
+                        ID: #00${student.id}
+                    </p>
+                </div>
+
+                <div class="${statusBg} ${statusText} px-8 py-4 rounded-full flex flex-col items-center justify-center">
+                    <span class="text-xs font-bold uppercase tracking-widest">Status</span>
+                    <span class="text-2xl font-black">${displayStatus}</span>
+                </div>
+            </div>
+        `;
+}
+    // 4. معالجة الرسائل القادمة من الـ Consumer
+    socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log("Action Received:", data.action);
+
+        switch(data.action) {
+            case 'INIT':
+
+                currentClassName = data.class_name;
+                document.title = `${data.school_name} | ${data.screen_name}`;
+                // تحديث الهيدر بالبيانات الحقيقية
+                document.getElementById('school-name-display').innerText = data.school_name;
+                document.getElementById('screen-name-display').innerText = data.screen_name;
+                
+                // تحديث مؤشر الاتصال للون الأخضر
+                const indicator = document.getElementById('connection-indicator');
+                indicator.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span><span class="text-[10px] font-bold uppercase">Online</span>';
+                break;
+
+            case 'INITIAL_SYNC':
+                container.innerHTML = '';
+                data.students.forEach(student => {
+                    // عرض البطاقات فقط للطلاب المطلوبين أو الموجودين عند البوابة
+                    if (student.status === 'REQUESTED' || student.status === 'AT_GATE') {
+                        container.innerHTML += createStudentCard(student);
+                    }
+                });
+                const tableBody = document.getElementById('queue-table-body');
+                    tableBody.innerHTML = ''; // مسح البيانات القديمة
+                    data.students.forEach(student => {
+                        tableBody.innerHTML += createQueueRow(student);
+                    });
+                updateSummaryStats(data.students);
+                break;
+
+            case 'UPDATE_STUDENT_STATUS':
+                // 1. تحديث البطاقات (Cards)
+                const existingCard = document.getElementById(`student-${data.id}`);
+                if (existingCard) existingCard.remove();
+
+                if (data.status === 'REQUESTED' || data.status === 'AT_GATE') {
+                    const newCardHTML = createStudentCard(data);
+                    if (data.status === 'AT_GATE') {
+                        container.insertAdjacentHTML('afterbegin', newCardHTML);
+                    } else {
+                        container.insertAdjacentHTML('beforeend', newCardHTML);
+                    }
+                }
+
+                // 2. تحديث الجدول (Table) - هام جداً للتزامن
+                const tableBodyUpdate = document.getElementById('queue-table-body');
+                const existingRowUpdate = document.getElementById(`queue-row-${data.id}`);
+                if (existingRowUpdate) {
+                    existingRowUpdate.outerHTML = createQueueRow(data);
+                } else {
+                    tableBodyUpdate.insertAdjacentHTML('afterbegin', createQueueRow(data));
+                }
+
+                // 3. تحديث عداد المستلمين (Delivered) يدوياً
+                if (data.status === 'DELIVERED') {
+                    let delElem = document.getElementById('stat-delivered');
+                    if(delElem) delElem.innerText = parseInt(delElem.innerText || 0) + 1;
+                }
+
+                // 4. تحديث باقي الإحصائيات من الواقع
+                refreshStatsFromDOM();
+                break;
+                
+            case 'ERROR':
+                alert(`خطأ من السيرفر: ${data.message}`);
+                break;
+        }
+    };
+
+    // 5. إعادة الاتصال التلقائي في حال انقطع السيرفر
+    socket.onclose = function(e) {
+        console.log('Socket closed. Reconnecting in 3s...');
+        setTimeout(() => window.location.reload(), 3000);
+    };
+
+    // تحديث الساعة كل ثانية
+function updateClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+        document.getElementById('live-clock').innerText = timeString;
+    }
+    setInterval(updateClock, 1000);
+    updateClock(); // تشغيل فوري
+
+// 1. تحديث الإحصائيات
+
+    function updateSummaryStats(students) {
+        // 1. حساب الأعداد من مصفوفة الطلاب القادمة من السيرفر
+        const presentCount = students.filter(s => s.status === 'PRESENT').length;
+        const requestedCount = students.filter(s => s.status === 'REQUESTED').length;
+        const atGateCount = students.filter(s => s.status === 'AT_GATE').length;
+        
+        
+        // ملاحظة: حالة Delivered غالباً تكون 0 عند المزامنة الأولية لأن السيرفر يفلترها
+        // لذا نعتمد على الرقم الموجود حالياً في الـ HTML أو نضعه 0
+        const deliveredCount = students.filter(s => s.status === 'DELIVERED').length;
+
+        // 2. تحديث واجهة المستخدم (المربعات الأربعة)
+        const stats = {
+            'stat-present': presentCount,
+            'stat-requested': requestedCount,
+            'stat-at-gate': atGateCount,
+            'stat-delivered': deliveredCount
+        };
+
+        // حلقة تكرارية لتحديث كل عنصر موجود في الـ HTML
+        for (const [id, value] of Object.entries(stats)) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.innerText = value;
+            }
+        }
+        
+        console.log("Stats Updated:", stats);
+    }
+
+
+// 2. تحديث الإحصائيات من الواجهة مباشرة (للتحديثات اللحظية)
+function refreshStatsFromDOM() {
+    const cards = container.querySelectorAll('.student-card-item');
+    let requested = 0;
+    let atGate = 0;
+    let present = 0; // العداد الجديد
+
+    cards.forEach(card => {
+        const statusText = card.getAttribute('data-status');
+        
+        if (statusText === 'AT_GATE') {
+            atGate++;
+        } else if (statusText === 'REQUESTED') {
+            requested++;
+        } else if (statusText === 'PRESENT') {
+            present++; // زيادة عداد الحضور إذا كانت الحالة PRESENT
+        }
+    });
+
+    // حقن الأرقام الجديدة في مربعات الإحصائيات (الـ HTML الذي أرفقته سابقاً)
+    document.getElementById('stat-present').innerText = present;
+    document.getElementById('stat-requested').innerText = requested;
+    document.getElementById('stat-at-gate').innerText = atGate;
+}
+
+
+function createQueueRow(student) {
+    let statusConfig = {
+        'PRESENT': { label: 'PRESENT', class: 'bg-surface-container-highest text-on-surface-variant' },
+        'REQUESTED': { label: 'REQUESTED', class: 'bg-secondary-container text-on-secondary-container' },
+        'AT_GATE': { label: 'AT GATE', class: 'bg-tertiary-container text-on-tertiary-container' },
+        'DELIVERED': { label: 'DELIVERED', class: 'bg-green-100 text-green-800' }
+    };
+
+    const config = statusConfig[student.status] || statusConfig['PRESENT'];
+    const time = student.request_time || "--:--";
+    const parent = student.parent_name || "---";
+
+    return `
+        <tr id="queue-row-${student.id}" class="bg-white hover:bg-primary/5 transition-colors border-b border-surface-container">
+            <td class="px-8 py-5">
+                <div class="flex flex-col text-right">
+                    <span class="text-lg font-bold">${student.full_name}</span>
+                    <span class="text-xs text-outline">ID: #00${student.id}</span>
+                </div>
+            </td>
+            <td class="px-8 py-5 text-right font-bold text-primary">${currentClassName}</td>
+            <td class="px-8 py-5 text-right">${parent}</td>
+            <td class="px-8 py-5 text-right">
+                <span class="px-3 py-1 ${config.class} rounded-full text-xs font-bold uppercase">
+                    ${config.label}
+                </span>
+            </td>
+            <td class="px-8 py-5 text-outline text-right font-mono">${time}</td>
+        </tr>
+    `;
+}
+</script>
+
+</body></html>

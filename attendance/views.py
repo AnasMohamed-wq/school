@@ -8,12 +8,11 @@ from .services.business_services import *
 from .services.notification_services import *
 from .permissions import IsAuthenticatedAndActive, IsParent , IsTeacher ,IsSchoolManager, authorize_request # استيراد الصلاحيات
 from .models import *
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from rest_framework.throttling import AnonRateThrottle
-
-
 from rest_framework.pagination import PageNumberPagination
 import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -330,5 +329,9 @@ class ApprovalActionView(APIView):
             return Response({"message": "تم تفعيل حساب ولي الأمر بنجاح"})
         except ParentSchool.DoesNotExist:
             return Response({"error": "علاقة ولي الأمر بالمدرسة غير موجودة"}, status=404)
+
+
+def screen(request):
+    return render(request, 'screen.html')
 
 

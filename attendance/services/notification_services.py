@@ -10,6 +10,7 @@ class WSService:
         try:
             from channels.layers import get_channel_layer
             if not student.school_class:
+                logger.debug("broadcast_student_update: student has no school_class, skipping.")
                 return
             
             channel_layer = get_channel_layer()

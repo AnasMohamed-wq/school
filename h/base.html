@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>الكيان — لوحة المدير</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body class="app-root">
+  <header class="topbar">
+    <div class="brand">الكيان</div>
+    <div class="top-right">
+      <span class="manager-name">{{ request.user.full_name }}</span>
+      <form method="post" action="{% url 'ui_logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button class="btn small" type="submit">تسجيل الخروج</button>
+      </form>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <nav>
+      <ul>
+        <li><a href="{% url 'ui_dashboard' %}">الرئيسية</a></li>
+        <li><a href="{% url 'ui_students' %}">الطلاب</a></li>
+        <li><a href="{% url 'ui_parents' %}">أولياء الأمور</a></li>
+        <li><a href="{% url 'ui_teachers' %}">المعلمين</a></li>
+        <li><a href="{% url 'ui_classes' %}">الفصول</a></li>
+        <li><a href="{% url 'ui_screens' %}">الشاشات الذكية</a></li>
+        <li><a href="{% url 'ui_settings' %}">الإعدادات</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toasts container -->
+  <div id="toasts" class="toasts"></div>
+
+  <script src="{% static 'js/main.js' %}"></script>
+  <!-- عرض رسائل من Django messages كـ toasts -->
+  <script>
+    (function() {
+      const msgs = [];
+      {% if messages %}
+        {% for message in messages %}
+          msgs.push({level: "{{ message.tags }}", text: "{{ message|escapejs }}"});
+        {% endfor %}
+      {% endif %}
+      msgs.forEach(m => window.showToast(m.text, m.level));
+      // خيار full-screen للتلفاز (محفوظ على زر في Settings الصفحة)
+      document.addEventListener('DOMContentLoaded', () => {
+          // حاول الدخول في full-screen تلقائياً إن كانت الصفحة على تلفاز
+          // لا تفرضه؛ يوجد زر أيضاً في واجهة الإعدادات
+      });
+    })();
+  </script>
+</body>
+</html>

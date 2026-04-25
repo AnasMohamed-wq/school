@@ -75,11 +75,12 @@ if not DEBUG:
     # إخبار Django أن Nginx هو من يقوم بتشفير الـ SSL
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-
+LOGIN_URL = 'web_login'
 REST_FRAMEWORK = {
     'COERCE_DECIMAL_TO_STRING': True,
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication', # للمتصفح فقط
     ),
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -128,7 +129,10 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.koyeb.app',
+    'http://127.0.0.1',
+    'http://localhost',
+    'http://0.0.0.0',
+    'http://178.238.233.218',
 ]
 
 
@@ -138,7 +142,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -154,13 +158,32 @@ ASGI_APPLICATION = 'core.asgi.application'
 
 
 
-DATABASES = {
-    'default': dj_database_url.config(
-        # يحاول قراءة DATABASE_URL من البيئة، وإذا لم يجدها يستخدم القيمة الافتراضية
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600
-    )
-}
+# في بيئة Docker، سنعتمد على DATABASE_URL إذا وجدت (للسيرفر) 
+# أو سنبني الرابط يدوياً للمحلي
+if os.getenv('DATABASE_URL'):
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600)
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'school_db'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'your_password'),
+            'HOST': os.getenv('DB_HOST', 'db'),  # 'db' هو اسم الخدمة في docker-compose
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    }
+
+
+# DATABASES = {
+#     'default': dj_database_url.config(
+#         # يحاول قراءة DATABASE_URL من البيئة، وإذا لم يجدها يستخدم القيمة الافتراضية
+#         default=os.getenv('DATABASE_URL'),
+#         conn_max_age=600
+#     )
+# }
 
 # DATABASES = {
 #     'default': {
@@ -222,16 +245,17 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.getenv('REDIS_URL')], 
+            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')], 
         },
     },
 }
 
 
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # المجلد الذي ستجمع فيه الملفات
 
 
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 LOGGING = {
     'version': 1,

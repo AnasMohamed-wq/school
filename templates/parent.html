@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Alkyan - إدارة أولياء الأمور</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400" rel="stylesheet"/>
+    
+    <style>
+        body { font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', sans-serif; }
+        .modal-active { overflow: hidden; }
+    </style>
+</head>
+<body class="bg-[#f7f9fc] text-[#191c1e] min-h-screen">
+
+    <header class="bg-white/80 backdrop-blur-xl shadow-sm sticky top-0 z-50 transition-all border-b border-slate-100">
+        <div class="flex justify-between items-center w-full px-8 py-4">
+            <div class="flex items-center gap-8">
+                <span class="text-2xl font-bold tracking-tight text-[#0061a5]">Alkyan</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <span class="text-slate-600 font-medium text-sm">{{ request.user.full_name }}</span>
+                    <div class="w-10 h-10 rounded-full bg-[#d2e4ff] flex items-center justify-center text-[#001c37] font-bold">
+                        {{ request.user.full_name|slice:":1" }}
+                    </div>
+                </div>
+                <a href="{% url 'web_logout' %}" class="hover:bg-red-50 transition-colors p-2 rounded-lg text-red-600">
+                    <span class="material-symbols-outlined">logout</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex">
+        <aside class="bg-white h-screen w-64 fixed right-0 top-0 border-l border-slate-200 flex flex-col py-6 px-4 z-40">
+            <div class="mb-10 px-4 mt-16">
+                <h1 class="text-xl font-black text-[#0061a5]">لوحة المدير</h1>
+                <p class="text-xs text-slate-500 italic">{{ request.user.schoolmanager.school.name }}</p>
+            </div>
+            <nav class="flex-1 space-y-2">
+                <a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-[#e2e2e2]/30 rounded-lg transition-all" href="{% url 'web_students' %}">
+                    <span class="material-symbols-outlined">school</span>
+                    <span class="text-sm font-bold">إدارة الطلاب</span>
+                </a>
+                <a class="flex items-center gap-3 px-4 py-3 bg-[#e2e2e2]/30 text-[#0061a5] border-r-4 border-[#0061a5] rounded-l-lg transition-all" href="{% url 'web_parents' %}">
+                    <span class="material-symbols-outlined">family_restroom</span>
+                    <span class="text-sm font-bold">إدارة أولياء الأمور</span>
+                </a>
+                 <a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-[#e2e2e2]/30 rounded-lg transition-all" href="{% url 'web_teachers' %}">
+                    <span class="material-symbols-outlined">record_voice_over</span>
+                    <span class="text-sm font-bold">إدارة المعلمين</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="mr-64 w-full p-8 transition-all">
+            
+            {% if messages %}
+                {% for message in messages %}
+                <div class="mb-4 p-4 rounded-xl flex justify-between items-center shadow-sm {% if message.tags == 'success' %}bg-green-50 text-green-700 border-r-4 border-green-600{% else %}bg-red-50 text-red-700 border-r-4 border-red-600{% endif %}">
+                    <span class="text-sm font-bold">{{ message }}</span>
+                    <button onclick="this.parentElement.remove()" class="opacity-50 hover:opacity-100">×</button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-[#191c1e] mb-2">إدارة أولياء الأمور</h2>
+                    <p class="text-slate-500">إدارة حسابات أولياء الأمور، اعتماد الطلبات الجديدة، وربطهم بالطلاب.</p>
+                </div>
+                <button onclick="openModal('addParentModal')" class="bg-[#0061a5] text-white font-bold px-6 py-2.5 rounded-md flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                    <span class="material-symbols-outlined text-xl">person_add</span>
+                    <span>إضافة ولي أمر جديد</span>
+                </button>
+            </div>
+
+            <form method="GET" class="flex flex-wrap gap-4 mb-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <div class="flex-1 min-w-[300px]">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 text-sm">search</span>
+                        <input type="text" name="search" value="{{ search_query }}" placeholder="بحث باسم ولي الأمر أو رقم الهاتف..." 
+                            class="w-full border-slate-200 rounded-lg text-sm pr-10 focus:ring-2 focus:ring-[#0061a5]/20">
+                    </div>
+                </div>
+                <button type="submit" class="bg-slate-800 text-white px-8 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 transition-all">بحث</button>
+                <a href="{% url 'web_parents' %}" class="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm flex items-center justify-center">إعادة ضبط</a>
+            </form>
+
+            <div class="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200">
+                <div class="p-6 border-b border-slate-100">
+                    <h3 class="text-xl font-bold text-[#191c1e]">سجل أولياء الأمور</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 font-bold uppercase">
+                                <th class="px-6 py-4 border-b">ولي الأمر</th>
+                                <th class="px-6 py-4 border-b">رقم الهاتف / الهوية</th>
+                                <th class="px-6 py-4 border-b">حالة الاعتماد</th>
+                                <th class="px-6 py-4 border-b text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for ps in parents_relations %}
+                            <tr class="hover:bg-slate-50/50 transition-all group">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-[#0061a5] font-bold">
+                                            {{ ps.parent.user.full_name|slice:":1" }}
+                                        </div>
+                                        <div>
+                                            <span class="font-bold text-[#191c1e] block">{{ ps.parent.user.full_name }}</span>
+                                            <span class="text-[10px] text-slate-400">تاريخ الربط: {{ ps.approved_at|date:"Y-m-d"|default:"-" }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="font-mono font-bold text-slate-700">{{ ps.parent.user.phone }}</div>
+                                    <div class="text-[10px] text-slate-400">هوية: {{ ps.parent.user.national_id|default:"غير متوفر" }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    {% if ps.is_approved %}
+                                        <span class="bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center w-fit gap-1">
+                                            <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> معتمد
+                                        </span>
+                                    {% else %}
+                                        <span class="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold flex items-center w-fit gap-1 animate-pulse">
+                                            <span class="w-1.5 h-1.5 bg-amber-500 rounded-full"></span> بانتظار الموافقة
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex justify-center gap-2">
+                                        {% if not ps.is_approved %}
+                                        <form method="POST" class="inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="approve">
+                                            <input type="hidden" name="ps_id" value="{{ ps.id }}">
+                                            <button type="submit" class="bg-[#0061a5] text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-[#00497e] transition-all">موافقة</button>
+                                        </form>
+                                        {% endif %}
+                                        
+                                        <button onclick="openEditModal('{{ ps.parent.id }}', '{{ ps.parent.user.full_name }}', '{{ ps.parent.user.phone }}', '{{ ps.parent.user.national_id|default:'' }}')" 
+                                                class="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors" title="تعديل">
+                                            <span class="material-symbols-outlined text-xl">edit</span>
+                                        </button>
+                                        
+                                        <button onclick="openUnlinkModal('{{ ps.id }}', '{{ ps.parent.user.full_name }}')"
+                                                class="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="فك الارتباط">
+                                            <span class="material-symbols-outlined text-xl">link_off</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-6 py-12 text-center text-slate-400 italic font-medium">لا يوجد أولياء أمور مسجلين حالياً</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
+                    <span class="text-xs text-slate-500">
+                        إجمالي النتائج: {{ parents_relations.paginator.count }}
+                    </span>
+                    <div class="flex gap-2">
+                        {% if parents_relations.has_previous %}
+                            <a href="?page={{ parents_relations.previous_page_number }}&search={{ search_query }}" 
+                            class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold">السابق</a>
+                        {% endif %}
+                        
+                        {% if parents_relations.has_next %}
+                            <a href="?page={{ parents_relations.next_page_number }}&search={{ search_query }}" 
+                            class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold">التالي</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="addParentModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b flex justify-between items-center bg-slate-50">
+                <h4 class="font-bold text-lg text-[#191c1e]">إضافة ولي أمر جديد</h4>
+                <button onclick="closeModal('addParentModal')" class="text-slate-400 hover:text-slate-600">×</button>
+            </div>
+            <form method="POST" class="p-6 space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_and_link">
+                
+                <div>
+                    <label class="text-xs font-bold text-slate-500 mb-1 block">الاسم بالكامل</label>
+                    <input name="full_name" required class="w-full bg-slate-50 border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0061a5]/20 py-3 px-4" placeholder="أدخل اسم ولي الأمر">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 mb-1 block">رقم الهاتف</label>
+                        <input name="phone" required class="w-full bg-slate-50 border-slate-200 rounded-xl py-3 px-4 font-mono" placeholder="05xxxxxxxx">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 mb-1 block">رقم الهوية</label>
+                        <input name="national_id" class="w-full bg-slate-50 border-slate-200 rounded-xl py-3 px-4 font-mono" placeholder="10xxxxxxxx">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-500 block">ربط بتلميذ (اختياري)</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute right-3 top-2.5 text-slate-400 text-sm">search</span>
+                        <input type="text" id="studentSearchInParentModal" onkeyup="filterStudentsInAddModal()" 
+                            class="w-full bg-white border-slate-200 rounded-lg py-2 pr-10 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20" 
+                            placeholder="ابحث عن اسم الطالب لربطه...">
+                    </div>
+
+                    <select name="target_student_id" id="studentSelectInAddModal" class="w-full bg-slate-50 border-slate-200 rounded-xl py-3 px-4 text-sm mt-2">
+                        <option value="">-- بدون ربط حالي --</option>
+                        {% for student in students %}
+                        <option value="{{ student.id }}">{{ student.full_name }} ({{ student.school_class.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex gap-3 justify-end pt-4">
+                    <button type="button" onclick="closeModal('addParentModal')" class="px-6 py-2 text-slate-500 font-bold">إلغاء</button>
+                    <button type="submit" class="px-8 py-2 bg-[#0061a5] text-white rounded-lg font-bold shadow-lg shadow-blue-200">تأكيد الإضافة والربط</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="editParentModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
+            <h4 class="font-bold text-lg mb-4 text-[#191c1e]">تعديل بيانات ولي الأمر</h4>
+            <form method="POST" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="parent_id" id="edit_p_id">
+                <div>
+                    <label class="text-xs font-bold text-slate-500 mb-1 block">الاسم بالكامل</label>
+                    <input name="full_name" id="edit_p_name" required class="w-full border-slate-200 rounded-xl py-3 px-4">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 mb-1 block">رقم الهاتف</label>
+                    <input name="phone" id="edit_p_phone" required class="w-full border-slate-200 rounded-xl py-3 px-4 font-mono">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 mb-1 block">الرقم الوطني / الهوية</label>
+                    <input name="national_id" id="edit_p_national" class="w-full border-slate-200 rounded-xl py-3 px-4">
+                </div>
+                <div class="flex gap-3 justify-end pt-4">
+                    <button type="button" onclick="closeModal('editParentModal')" class="px-6 py-2 text-slate-500 font-bold">إلغاء</button>
+                    <button type="submit" class="px-8 py-2 bg-[#0061a5] text-white rounded-lg font-bold">تحديث البيانات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="unlinkModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl">
+            <div class="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-3xl">link_off</span>
+            </div>
+            <h4 class="font-bold text-lg mb-2">فك ارتباط ولي الأمر؟</h4>
+            <p class="text-sm text-slate-500 mb-6">هل أنت متأكد من فك ارتباط <span id="unlink_name" class="font-bold text-slate-800"></span> بمدرستك؟</p>
+            <form method="POST" class="flex gap-3 justify-center">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="unlink">
+                <input type="hidden" name="ps_id" id="unlink_ps_id">
+                <button type="button" onclick="closeModal('unlinkModal')" class="flex-1 py-2 bg-slate-100 rounded-lg font-bold">تراجع</button>
+                <button type="submit" class="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold">نعم، فك الارتباط</button>
+            </form>
+        </div>
+    </div>
+<script>
+    // الدوال الأساسية للفتح والإغلاق
+    function openModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.classList.add('modal-active');
+        }
+    }
+
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.classList.remove('modal-active');
+            
+            // تنظيف البحث إذا كان الموديول المغلق هو موديول الإضافة
+            if (id === 'addParentModal') {
+                const searchInput = document.getElementById('studentSearchInParentModal');
+                if (searchInput) {
+                    searchInput.value = '';
+                    filterStudentsInAddModal(); // إعادة إظهار كل الطلاب
+                }
+            }
+        }
+    }
+
+    // موديول التعديل
+    function openEditModal(id, name, phone, nationalId) {
+        document.getElementById('edit_p_id').value = id;
+        document.getElementById('edit_p_name').value = name;
+        document.getElementById('edit_p_phone').value = phone;
+        document.getElementById('edit_p_national').value = nationalId;
+        openModal('editParentModal');
+    }
+
+    // موديول فك الارتباط
+    function openUnlinkModal(psId, name) {
+        document.getElementById('unlink_ps_id').value = psId;
+        document.getElementById('unlink_name').innerText = name;
+        openModal('unlinkModal');
+    }
+
+    // البحث عن الطلاب داخل الموديول
+    function filterStudentsInAddModal() {
+        const input = document.getElementById('studentSearchInParentModal');
+        const filter = input.value.toLowerCase();
+        const select = document.getElementById('studentSelectInAddModal');
+        const options = select.options;
+
+        for (let i = 0; i < options.length; i++) {
+            const txtValue = options[i].text;
+            // إظهار الخيار الأول دائماً (بدون ربط) أو المطابق للبحث
+            if (i === 0 || txtValue.toLowerCase().indexOf(filter) > -1) {
+                options[i].style.display = "";
+            } else {
+                options[i].style.display = "none";
+            }
+        }
+    }
+
+    // إغلاق عند الضغط خارج النافذة (Backdrop)
+    window.onclick = function(e) {
+        if (e.target.classList.contains('backdrop-blur-sm')) {
+            // نمرر الـ id الخاص بالعنصر الذي تم الضغط عليه مباشرة
+            closeModal(e.target.id);
+        }
+    }
+</script>
+</body>
+</html>

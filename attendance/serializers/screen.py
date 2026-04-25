@@ -11,9 +11,11 @@ class SmartScreenStudentSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'status', 'request_time', 'parent_name']
 
     def get_request_time(self, obj):
-        # جلب زمن أخر طلب نشط لهذا الطالب
         last_request = obj.pickuprequest_set.filter(status__in=['CREATED', 'ACCEPTED']).last()
-        return last_request.requested_at if last_request else None
+        if last_request:
+            # تحويل الوقت إلى نص بصيغة الساعات والدقائق
+            return last_request.requested_at.strftime('%H:%M') 
+        return None
 
     def get_parent_name(self, obj):
         last_request = obj.pickuprequest_set.filter(status__in=['CREATED', 'ACCEPTED']).last()

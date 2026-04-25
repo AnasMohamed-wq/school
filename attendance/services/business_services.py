@@ -98,39 +98,6 @@ class AttendanceService:
         # ببساطة استدعِ الدالة الموحدة
         return StateService.transition_student_status(student, new_status)
         
-#     @staticmethod
-#     @transaction.atomic
-#     def update_student_and_request_status(student, new_status, teacher_user):
-#         """
-#         تحديث حالة الطالب ومزامنة طلب الاستلام المرتبط به تلقائياً.
-#         """
-#         student_locked = Student.objects.select_for_update().get(id=student.id)
-#         current_status = student_locked.status
-
-#         # 1. التحقق من صلاحية الانتقال (State Validation)
-#         StateService.validate_transition(current_status, new_status)
-
-#         # 2. تحديث حالة الطالب
-#         student_locked.change_status(new_status)
-#         student_locked.save(update_fields=['status'])
-
-#         if new_status == 'DELIVERED':
-#             PickupRequest.objects.filter(
-#                 student=student_locked, 
-#                 status__in=['CREATED', 'ACCEPTED']
-#             ).update(status='COMPLETED',  completed_at=timezone.now())
-            
-#         elif new_status == 'PRESENT' and current_status == 'REQUESTED':
-#             # بدلاً من .delete()، نقوم بالتحديث لـ CANCELLED للحفاظ على السجل للتقارير
-#             PickupRequest.objects.filter(
-#                 student=student_locked, 
-#                 status__in=['CREATED', 'ACCEPTED']
-#             ).update(status='CANCELLED')
-
-#         # 4. البث عبر الـ WebSocket
-#         WSService.broadcast_student_update(student_locked)
-        
-#         return student_locked
     
 
 
@@ -184,31 +151,6 @@ class StateService:
 
         return student_locked
 
-#     @staticmethod
-#     @transaction.atomic
-#     def transition_student_status(student, new_status):
-#         # 1. تحديث حالة الطالب أولاً
-#         student.change_status(new_status)
-#         student.save(update_fields=['status'])
-
-#         # 2. مزامنة "طلب الاستلام" (PickupRequest)
-#         # إذا أصبح الطالب DELIVERED، نغلق الطلب بـ COMPLETED
-#         if new_status == 'DELIVERED':
-#             PickupRequest.objects.filter(
-#                 student=student,
-#                 status__in=['CREATED', 'ACCEPTED'] # الحالات النشطة في الموديل عندك
-#             ).update(
-#                 status='COMPLETED', 
-#                 completed_at=timezone.now()
-#             )
-#             logger.info(f"PickupRequest for student {student.id} marked as COMPLETED.")
-            
-#         # إذا عاد الطالب PRESENT، نلغي الطلب (يمكنك إضافة حالة CANCELLED للموديل أو حذفه)
-#         elif new_status == 'PRESENT':
-#             PickupRequest.objects.filter(
-#                 student=student,
-#                 status__in=['CREATED', 'ACCEPTED']
-#             ).delete() # أو تحويله لـ Cancelled إذا أضفتها للموديل
 
 
 

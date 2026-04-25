@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="dashboard">
+    <h2>مرحباً، {{ request.user.full_name }}</h2>
+    <div class="stats-grid">
+      <div class="card stat">
+        <div class="label">الحضور</div>
+        <div class="value">{{ stats.present_count }}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">الطلبات</div>
+        <div class="value">{{ stats.requested_count }}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">عند البوابة</div>
+        <div class="value">{{ stats.at_gate_count }}</div>
+      </div>
+      <div class="card stat">
+        <div class="label">تم الاستلام</div>
+        <div class="value">{{ stats.delivered_count }}</div>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <a class="btn" href="{% url 'ui_students' %}">إدارة الطلاب</a>
+      <a class="btn" href="{% url 'ui_classes' %}">إدارة الفصول</a>
+      <a class="btn" href="{% url 'ui_screens' %}">الشاشات</a>
+    </div>
+  </section>
+{% endblock %}

@@ -9,7 +9,7 @@ from .models import (
     Parent, ParentSchool, Student, StudentParent,
     PickupRequest, SmartScreen, StudentStatus
 )
-
+from django.utils.safestring import mark_safe
 
 
 class SchoolIsolatedAdmin(admin.ModelAdmin):
@@ -446,17 +446,31 @@ class ParentSchoolAdmin(SchoolIsolatedAdmin):
             obj.parent_school_token
         )
 
+    
     @admin.display(description='معلومات الاعتماد')
     def approved_by_info(self, obj):
-        if obj.is_approved and obj.approved_by:
-            return format_html(
-                '<div style="font-size: 11px; color: #666;">بواسطة: <b>{}</b><br>في: {}</div>',
-                obj.approved_by.full_name,
-                obj.approved_at.strftime('%Y-%m-%d %H:%M')
-            )
-        return "-"
+        # 1. التحقق من وجود كافة البيانات المطلوبة
+        if obj.is_approved and obj.approved_by and obj.approved_at:
+            try:
+                # الحصول على الاسم (استخدم getattr للأمان)
+                user_display = getattr(obj.approved_by, 'full_name', None) or obj.approved_by.username
+                date_display = obj.approved_at.strftime('%Y-%m-%d %H:%M')
+                
+                # تمرير المتغيرات بشكل صريح لـ format_html
+                return format_html(
+                    '<div style="font-size: 11px; color: #666;">بواسطة: <b>{}</b><br>في: {}</div>',
+                    user_display,
+                    date_display
+                )
+            except Exception:
+                return mark_safe('<span style="color: #cc0000;">خطأ في البيانات</span>')
 
-    # الميثودات المساعدة الأخرى
+        # 2. في حالة عدم وجود بيانات (الرجوع الآمن)
+        # نستخدم mark_safe لنص ثابت تماماً لتجنب فحص format_html للمتغيرات
+        return mark_safe('<span style="color: #999;">-</span>')
+    
+
+            # الميثودات المساعدة الأخرى
     @admin.display(description='ولي الأمر')
     def get_parent_name(self, obj):
         return obj.parent.user.full_name

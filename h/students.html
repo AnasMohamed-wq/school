@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <div class="page-header">
+    <h2>الطلاب</h2>
+    <button class="btn primary" data-toggle="modal" data-target="#modal-create-student">إضافة طالب</button>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>الكود</th>
+        <th>الفصل</th>
+        <th>الحالة</th>
+        <th>الإجراءات</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in students %}
+      <tr>
+        <td>{{ s.full_name }}</td>
+        <td>{{ s.student_code }}</td>
+        <td>{{ s.school_class.name }}</td>
+        <td>{{ s.status }}</td>
+        <td>
+          <!-- ربط ولي أمر: يفتح modal -->
+          <button class="btn" data-toggle="modal" data-target="#modal-assign-parent" data-student-id="{{ s.id }}">ربط ولي أمر</button>
+          <!-- نقل -->
+          <button class="btn" data-toggle="modal" data-target="#modal-transfer" data-student-id="{{ s.id }}">نقل</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">لا يوجد طلاب بعد.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Modal: Create Student -->
+<div id="modal-create-student" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h3>إضافة طالب جديد</h3>
+    <form method="post" action="{% url 'ui_students_create' %}">
+      {% csrf_token %}
+      <label>الاسم الكامل<input name="full_name" required /></label>
+      <label>الفصل
+        <select name="class_id" required>
+          {% for c in classes %}
+            <option value="{{ c.id }}">{{ c.name }} ({{ c.number }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-dismiss="modal">إلغاء</button>
+        <button class="btn primary" type="submit">إنشاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Assign Parent -->
+<div id="modal-assign-parent" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h3>ربط ولي أمر بالطالب</h3>
+    <form method="post" action="{% url 'ui_students_assign_parent' %}">
+      {% csrf_token %}
+      <input type="hidden" name="student_id" id="assign-parent-student-id" />
+      <label>اسم ولي الأمر<input name="parent_name" required /></label>
+      <label>هاتف ولي الأمر<input name="parent_phone" required /></label>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-dismiss="modal">إلغاء</button>
+        <button class="btn primary" type="submit">ربط</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Transfer Student -->
+<div id="modal-transfer" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h3>نقل الطالب إلى فصل آخر</h3>
+    <form method="post" action="{% url 'ui_students_transfer' %}">
+      {% csrf_token %}
+      <input type="hidden" name="student_id" id="transfer-student-id" />
+      <label>الفصل الجديد
+        <select name="new_class_id" required>
+          {% for c in classes %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-dismiss="modal">إلغاء</button>
+        <button class="btn primary" type="submit">نقل</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

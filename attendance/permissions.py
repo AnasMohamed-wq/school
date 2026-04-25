@@ -40,8 +40,4 @@ def authorize_request(request, school_id=None):
     school = get_object_or_404(School, id=school_id, is_active=True)
     return school
     
-    # # إرجاع كائن المدرسة لتسهيل العمل في الـ View
-    # if user.role == 'SUPER_ADMIN': return school_id
-    # if user.role == 'MANAGER': return user.schoolmanager.school
-    # if user.role == 'TEACHER': return user.teacher.school
-    # if user.role == 'PARENT': return ParentSchool.objects.get(parent__user=user, school_id=school_id).school
+ 

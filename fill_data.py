@@ -64,7 +64,7 @@ def run_seeder():
 
     
     
-    for s_idx in range(1, 11):
+    for s_idx in range(1, 2):
         # إنشاء المدرسة
         school = School.objects.create(
             name=f"مدرسة {fake.company()}",
@@ -87,7 +87,7 @@ def run_seeder():
         # إنشاء 10 فصول
         # إنشاء 10 فصول
         classes = []
-        for c_idx in range(1, 11):
+        for c_idx in range(1, 3):
             s_class = SchoolClass.objects.create(
                 school=school,
                 name=f"فصل {fake.name()} {c_idx}",
@@ -108,7 +108,7 @@ def run_seeder():
             print(f"   🖥️ تم إنشاء شاشة للفصل: {s_class.name} (Token: {str(smart_screen.screen_token)[:8]}...)")
 
         # إنشاء 10 مدرس
-        for _ in range(10):
+        for _ in range(3):
             t_user = User.objects.create_user(
                 phone=get_next_phone(),
                 full_name=fake.name(),

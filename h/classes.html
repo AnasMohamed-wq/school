@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <div class="page-header">
+    <h2>الفصول</h2>
+    <button class="btn primary" data-toggle="modal" data-target="#modal-create-class">إضافة فصل</button>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr><th>الاسم</th><th>الرقم</th><th>الإجراءات</th></tr>
+    </thead>
+    <tbody>
+      {% for c in classes %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>{{ c.number }}</td>
+        <td>
+          <button class="btn" data-toggle="modal" data-target="#modal-edit-class" data-class-id="{{ c.id }}" data-class-name="{{ c.name }}" data-class-number="{{ c.number }}">تعديل</button>
+          <form method="post" action="{% url 'ui_classes_deactivate' %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="class_id" value="{{ c.id }}">
+            <button class="btn danger" type="submit">تعطيل</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Modal: Create Class -->
+<div id="modal-create-class" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h3>إنشاء فصل</h3>
+    <form method="post" action="{% url 'ui_classes_create' %}">
+      {% csrf_token %}
+      <label>الاسم<input name="name" required /></label>
+      <label>الرقم<input name="number" required /></label>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-dismiss="modal">إلغاء</button>
+        <button class="btn primary" type="submit">إنشاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Edit Class -->
+<div id="modal-edit-class" class="modal" aria-hidden="true">
+  <div class="modal-content">
+    <h3>تعديل بيانات الفصل</h3>
+    <form method="post" action="{% url 'ui_classes_update' %}">
+      {% csrf_token %}
+      <input type="hidden" name="class_id" id="edit-class-id" />
+      <label>الاسم<input name="name" id="edit-class-name" required /></label>
+      <label>الرقم<input name="number" id="edit-class-number" required /></label>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-dismiss="modal">إلغاء</button>
+        <button class="btn primary" type="submit">حفظ</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
