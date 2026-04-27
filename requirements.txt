@@ -13,7 +13,9 @@ constantly==23.10.4
 cors==1.0.1
 cryptography==46.0.3
 daphne==4.1.2
+dj-database-url==3.1.0
 Django==6.0.1
+django-cors-headers==4.9.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
 drf-spectacular==0.29.0
@@ -31,6 +33,9 @@ jsonschema-specifications==2025.9.1
 msgpack==1.1.2
 oauthlib==3.3.1
 packaging==25.0
+pdfminer.six==20251230
+pdfplumber==0.11.9
+pillow==12.1.1
 psycopg2-binary==2.9.11
 py-ubjson==0.16.1
 pyasn1==0.6.2
@@ -38,6 +43,7 @@ pyasn1_modules==0.4.2
 pycparser==2.23
 PyJWT==2.10.1
 pyOpenSSL==25.3.0
+pypdfium2==5.5.0
 PySocks==1.7.1
 python-dotenv==1.2.1
 PyYAML==6.0.3
@@ -59,8 +65,3 @@ uritemplate==4.2.0
 urllib3==2.6.3
 zope.event==6.1
 zope.interface==8.2
-django-cors-headers
-whitenoise
-dj-database-url
-python-dotenv
-pdfplumber
